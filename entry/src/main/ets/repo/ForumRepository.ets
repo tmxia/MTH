@@ -2,9 +2,6 @@ import { HttpClient } from '../network/HttpClient';
 import { ForumGroup, HomeData, ForumPage, Thread, ThreadPage } from '../models/Models';
 import { ForumParser } from '../parser/ForumParser';
 
-// ==========================================
-// 1. 枚举和常量
-// ==========================================
 export enum ForumSort {
   LATEST = "最新",
   HOT = "热门",
@@ -14,13 +11,9 @@ export enum ForumSort {
 
 const GUIDE_VIEW_PORTAL = "hot";
 
-// ==========================================
-// 2. 业务仓库类
-// ==========================================
 export class ForumRepository {
   private http: typeof HttpClient;
   
-  // 预留扩展属性，默认为空集合
   public blockedUidsProvider: () => Set<string> = () => new Set<string>();
 
   constructor(http: typeof HttpClient) {
@@ -31,14 +24,12 @@ export class ForumRepository {
     return this.blockedUidsProvider();
   }
 
-  // 获取版块列表
   async forumGroups(): Promise<Array<ForumGroup>> {
     const url = "forum.php?forumlist=1&mobile=2";
     const html = await this.http.get(url);
     return ForumParser.parseForumList(html);
   }
 
-  // 获取首页推荐数据 (热门)
   async home(): Promise<HomeData> {
     const url = "forum.php?mod=guide&view=hot&mobile=2";
     const html = await this.http.get(url);
@@ -48,7 +39,6 @@ export class ForumRepository {
     if (blocked.size === 0) {
       return data;
     } else {
-      // 过滤被屏蔽用户的热帖
       data.hotThreads = data.hotThreads.filter((thread: Thread) => {
         return !(thread.authorUid && blocked.has(thread.authorUid));
       });
@@ -56,7 +46,6 @@ export class ForumRepository {
     }
   }
 
-  // 获取导读流 (最新/热门/精华/回复)
   async guideFeed(view: string, page: number): Promise<ForumPage> {
     const blocked = this.currentBlocked();
     
@@ -86,8 +75,8 @@ export class ForumRepository {
       }
     }
   }
-}
-  // 获取帖子详情页
+
+  // 修复：确保此方法在类内部且语法正确
   async threadPage(tid: string, page: number, orderType: number = 0, authorId: string | null = null): Promise<ThreadPage> {
     let orderStr = orderType === 1 ? "&ordertype=1" : "";
     let authorStr = (authorId && authorId.trim() !== "") ? `&authorid=${authorId}` : "";
@@ -101,7 +90,6 @@ export class ForumRepository {
     }
     return tp;
   }
+}
 
-
-// 导出单例
 export const forumRepository = new ForumRepository(HttpClient);

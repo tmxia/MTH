@@ -1,6 +1,6 @@
 import { forumRepository } from '../repo/ForumRepository';
 import { ThreadPage, Post } from '../models/Models';
-import router from '@ohos.router';
+import { router } from '@kit.ArkUI';
 
 @Entry
 @Component
