@@ -42,8 +42,7 @@ export class HttpClient {
       let bodyKeys: string[] = Object.keys(body);
       for (let i = 0; i < bodyKeys.length; i++) {
         let k: string = bodyKeys[i];
-        // 核心修复：显式声明 val 的类型为 string，消灭 any
-        let val: string = body[k]; 
+        let val: string = body[k] as string; // 强制断言为 string
         formData.push(encodeURIComponent(k) + '=' + encodeURIComponent(val));
       }
       options.extraData = formData.join('&');
@@ -53,12 +52,15 @@ export class HttpClient {
     try {
       let response: http.HttpResponse = await httpRequest.request(fullUrl, options);
       
-      let setCookie = response.header['set-cookie'];
+      // 强制将 header 断言为明确的 Record 类型，杜绝 any
+      let responseHeaders = response.header as Record<string, string | string[]>;
+      let setCookie = responseHeaders['set-cookie'];
+      
       if (setCookie) {
         let newCookieStr: string = '';
         if (typeof setCookie === 'string') {
-          newCookieStr = setCookie;
-        } else {
+          newCookieStr = setCookie as string;
+        } else if (Array.isArray(setCookie)) {
           newCookieStr = (setCookie as string[]).join('; ');
         }
         let currentCookie: string = cookieManager.get();
@@ -70,13 +72,9 @@ export class HttpClient {
       }
       return response.result as string;
     } catch (error) {
-      // 核心修复：处理 catch 里的 any 报错
-      let errMsg: string = 'Unknown Error';
-      if (error instanceof Error) {
-        errMsg = error.message;
-      } else {
-        errMsg = JSON.stringify(error);
-      }
+      // ArkTS 对 catch 变量极度严格，必须显式转换
+      let err = error as Error;
+      let errMsg: string = err.message ? err.message : 'Unknown Error';
       throw new Error('Http Request Failed: ' + errMsg);
     } finally {
       httpRequest.destroy();
