@@ -2,7 +2,5 @@
   "modelVersion": "5.0.0",
   "description": "MTF Harmony App",
   "dependencies": {},
-  "devDependencies": {
-    "@ohos/hvigor-ohos-plugin": "4.1.0"
-  }
+  "devDependencies": {}
 }
