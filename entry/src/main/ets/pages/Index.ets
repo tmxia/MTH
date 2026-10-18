@@ -3,6 +3,8 @@ import { forumRepository } from '../repo/ForumRepository';
 import { Thread, ForumGroup, Forum } from '../models/Models';
 import common from '@ohos.app.ability.common';
 import router from '@ohos.router';
+import promptAction from '@ohos.promptAction';
+import { UserProfile } from '../models/Models';
 
 @Entry
 @Component
@@ -23,9 +25,7 @@ struct Index {
 
       // Tab 3: 我的
       TabContent() {
-        Column() {
-          Text('个人中心待开发').fontSize(16).fontColor('#999')
-        }.width('100%').height('100%').justifyContent(FlexAlign.Center)
+        ProfileTab()
       }.tabBar('我的')
     }
     .onChange((index: number) => {
@@ -190,5 +190,102 @@ struct ForumTab {
         .width('100%').layoutWeight(1).padding(15).backgroundColor('#F5F5F5')
       }
     }.width('100%').height('100%')
+  }
+}
+
+
+// ==========================================
+// 个人中心组件
+// ==========================================
+@Component
+struct ProfileTab {
+  @State profile: UserProfile | null = null;
+  @State isLoading: boolean = true;
+
+  async aboutToAppear() {
+    await this.loadData();
+  }
+
+  onPageShow() {
+    // 从登录页返回时，重新拉取状态
+    this.loadData();
+  }
+
+  async loadData() {
+    this.isLoading = true;
+    try {
+      this.profile = await forumRepository.me();
+    } catch (e) {
+      console.error('Failed to load profile', e);
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async doLogout() {
+    await cookieManager.clear();
+    this.profile = null;
+    promptAction.showToast({ message: '已退出登录' });
+    // 刷新页面状态
+    this.loadData();
+  }
+
+  build() {
+    Column() {
+      // 顶部标题
+      Row() {
+        Text('个人中心').fontSize(20).fontWeight(FontWeight.Bold).fontColor('#333')
+      }.width('100%').height(50).padding({ left: 16 }).backgroundColor('#FFFFFF')
+
+      if (this.isLoading) {
+        LoadingProgress().width(50).height(50).color('#4D6BFE').margin({ top: 100 })
+      } else if (this.profile && this.profile.isLoggedIn) {
+        // 已登录 UI
+        Column({ space: 15 }) {
+          // 头部卡片
+          Row({ space: 15 }) {
+            Image(this.profile.avatarUrl ? this.profile.avatarUrl : $r('app.media.icon'))
+              .width(60).height(60).borderRadius(30).backgroundColor('#EEEEEE')
+            Column({ space: 5 }) {
+              Text(this.profile.name || '未知用户').fontSize(18).fontWeight(FontWeight.Bold)
+              Text(this.profile.groupName || '普通会员').fontSize(12).fontColor('#4D6BFE').backgroundColor('#E8F0FE').padding({ left: 6, right: 6, top: 2, bottom: 2 }).borderRadius(4)
+            }.alignItems(HorizontalAlign.Start)
+            Blank()
+          }.width('100%').padding(20).backgroundColor('#FFFFFF').borderRadius(12)
+
+          // 数据统计
+          Row() {
+            Column() { Text(`${this.profile.posts || 0}`).fontSize(16).fontWeight(FontWeight.Bold); Text('帖子').fontSize(12).fontColor('#999') }.layoutWeight(1)
+            Column() { Text(`${this.profile.credits || 0}`).fontSize(16).fontWeight(FontWeight.Bold); Text('积分').fontSize(12).fontColor('#999') }.layoutWeight(1)
+            Column() { Text(`${this.profile.gold || 0}`).fontSize(16).fontWeight(FontWeight.Bold); Text('金币').fontSize(12).fontColor('#999') }.layoutWeight(1)
+          }.width('100%').padding({ top: 15, bottom: 15 }).backgroundColor('#FFFFFF').borderRadius(12)
+
+          // 菜单列表
+          Column() {
+            Row() { Text('我的帖子').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' })
+            Row() { Text('我的收藏').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' })
+            Row() { Text('我的好友').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15) }
+          .width('100%').backgroundColor('#FFFFFF').borderRadius(12)
+
+          // 退出登录按钮
+          Button('退出登录')
+            .width('100%').height(45).backgroundColor('#FF3B30').fontColor('#FFFFFF').margin({ top: 20 })
+            .onClick(() => this.doLogout())
+        }
+        .width('90%').margin({ top: 20 })
+      } else {
+        // 未登录 UI
+        Column({ space: 20 }) {
+          Image($r('app.media.icon')).width(80).height(80).borderRadius(40).backgroundColor('#EEEEEE')
+          Text('您尚未登录').fontSize(16).fontColor('#666')
+          Button('立即登录')
+            .width('60%').height(45).backgroundColor('#4D6BFE').fontColor('#FFFFFF')
+            .onClick(() => {
+              router.pushUrl({ url: 'pages/Login' });
+            })
+        }
+        .width('100%').height('100%').justifyContent(FlexAlign.Center).margin({ top: -50 })
+      }
+    }.width('100%').height('100%').backgroundColor('#F5F5F5')
   }
 }

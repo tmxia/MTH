@@ -141,7 +141,15 @@ export class ForumRepository {
     }
     return fp;
   }
+
+  // 获取当前登录用户信息
+  async me(): Promise<UserProfile> {
+    const url = "home.php?mod=space&do=profile&mobile=2";
+    const html = await HttpClient.get(url);
+    return ForumParser.parseUserProfile(html);
+  }
 }
+
 
 
 

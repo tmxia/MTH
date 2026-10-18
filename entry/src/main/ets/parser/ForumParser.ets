@@ -1,4 +1,4 @@
-import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult } from '../models/Models';
+import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult, UserProfile } from '../models/Models';
 
 const RE_FID = /forum-(\d+)-/;
 const RE_TID = /thread-(\d+)-/;
@@ -418,5 +418,67 @@ export class ForumParser {
     result.message = errMsg;
     return result;
   }
+
+  // ==========================================
+  // 7. 解析个人中心资料
+  // ==========================================
+  static parseUserProfile(html: string, fallbackUid: string | null = null): UserProfile {
+    const profile = new UserProfile();
+    
+    // 获取 UID
+    let uid = fallbackUid;
+    if (!uid || uid.trim() === '') {
+      const uidMatch = /discuz_uid\s*=\s*'(\d+)'/.exec(html) || /uid=(\d+)/.exec(html);
+      if (uidMatch) uid = uidMatch[1];
+    }
+    profile.uid = uid;
+
+    if (!uid || uid === '0') {
+      return profile;
+    }
+
+    // 用户名 (尝试匹配 .comiis_space_tx h2)
+    const nameMatch = /<div[^>]*class="[^"]*comiis_space_tx[^"]*"[^>]*>[\s\S]*?<h2[^>]*>([\s\S]*?)<\/h2>/i.exec(html);
+    if (nameMatch) {
+      profile.name = stripInvisible(nameMatch[1].replace(/<[^>]+>/g, ''));
+    } else {
+      // 备用：a.sidenv_user
+      const sideNameMatch = /<a[^>]*class="[^"]*sidenv_user[^"]*"[^>]*>([\s\S]*?)<\/a>/i.exec(html);
+      if (sideNameMatch) profile.name = stripInvisible(sideNameMatch[1]);
+    }
+
+    // 用户组/等级
+    const levelMatch = /<span[^>]*class="[^"]*(?:kmlevs|user_lev)[^"]*"[^>]*>([\s\S]*?)<\/span>/i.exec(html);
+    if (levelMatch) {
+      profile.level = stripInvisible(levelMatch[1]);
+      profile.groupName = profile.level;
+    }
+
+    // 头像
+    const avatarMatch = /<div[^>]*class="[^"]*comiis_space_tx[^"]*"[^>]*>[\s\S]*?<img[^>]*src="([^"]+)"/i.exec(html);
+    if (avatarMatch) {
+      profile.avatarUrl = avatarMatch[1];
+    } else {
+      const sideAvatarMatch = /<img[^>]*class="[^"]*sidenv_tximg[^"]*"[^>]*src="([^"]+)"/i.exec(html);
+      if (sideAvatarMatch) profile.avatarUrl = sideAvatarMatch[1];
+    }
+
+    // 提取数值 (提取 <li> 中包含对应文字的数字)
+    const extractNumber = (label: string): number => {
+      const reg = new RegExp(`<li[^>]*>[^<]*${label}[^<]*<[^>]*>\s*(\\d+)`, 'i');
+      const match = reg.exec(html);
+      return match ? parseInt(match[1]) : 0;
+    };
+
+    profile.posts = extractNumber("帖子");
+    profile.threads = extractNumber("主题");
+    profile.credits = extractNumber("积分");
+    profile.gold = extractNumber("金币");
+    profile.friends = extractNumber("好友");
+    profile.followers = extractNumber("粉丝");
+
+    return profile;
+  }
 }
+
 
