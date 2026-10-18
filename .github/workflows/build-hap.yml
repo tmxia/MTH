@@ -1,28 +1,38 @@
-name: Build HarmonyOS HAP
+name: Build & Release HAP
 on:
   push:
     branches: [ "main" ]
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # 允许 Action 创建 Release
+      
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-node@v4
         with:
           node-version: '18'
+          
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
+          
       - name: Setup OpenHarmony SDK
         uses: ErBWs/setup-ohos@v2
 
+      # 1. 还原签名文件
       - name: Restore Signing Files
         run: |
           echo "${{ secrets.HAP_P12_BASE64 }}" | base64 -d > signature.p12
           echo "${{ secrets.HAP_P7B_BASE64 }}" | base64 -d > signature.p7b
+          # 从 p12 中导出 cer 证书
           keytool -exportcert -alias "${{ secrets.HAP_KEY_ALIAS }}" -keystore signature.p12 -storepass "${{ secrets.HAP_KEY_PASSWORD }}" -file signature.cer
 
+      # 2. 动态注入签名配置到 build-profile.json5
       - name: Configure Signing in build-profile.json5
         run: |
           python3 -c "
@@ -44,13 +54,26 @@ jobs:
           with open('build-profile.json5', 'w') as f: json.dump(data, f, indent=2)
           "
 
+      # 3. 编译打包
       - name: Build HAP
         run: |
           hvigorw clean --no-daemon
           hvigorw assembleHap --mode module -p product=default --no-parallel --no-daemon
 
+      # 4. 发布到 GitHub Releases
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: MTH Release v1.0.${{ github.run_number }}
+          body: "Auto-built and signed by GitHub Actions."
+          files: entry/build/default/outputs/default/*.hap
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 5. 同时保留 Actions 产物供直接下载
       - name: Upload HAP Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MTH-Release-HAP
+          name: MTH-Signed-HAP
           path: entry/build/default/outputs/default/*.hap
