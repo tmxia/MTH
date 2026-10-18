@@ -406,11 +406,11 @@ export class ForumParser {
     let errMsg = "登录失败";
     const dtMatch = /id=["']messagetext["'][^>]*>([\s\S]*?)<\/dt>/i.exec(html);
     if (dtMatch) {
-      errMsg = this.stripInvisible(dtMatch[1].replace(/<[^>]+>/g, ''));
+      errMsg = stripInvisible(dtMatch[1].replace(/<[^>]+>/g, ''));
     } else {
       const pMatch = /<p>([\s\S]*?)(?:<script|<\/p>)/i.exec(html);
       if (pMatch && !pMatch[1].includes("<img") && pMatch[1].trim().length > 0) {
-        errMsg = this.stripInvisible(pMatch[1].replace(/<[^>]+>/g, ''));
+        errMsg = stripInvisible(pMatch[1].replace(/<[^>]+>/g, ''));
       }
     }
 

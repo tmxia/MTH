@@ -2,7 +2,7 @@ import http from '@ohos.net.http';
 import { cookieManager } from './CookieManager';
 
 export class HttpClient {
-  private static baseUrl: string = "https://bbs.binmt.cc/";
+  public static baseUrl: string = "https://bbs.binmt.cc/";
   private static userAgent: string = "Mozilla/5.0 (Linux; Android 10; HarmonyOS) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36";
 
   static async request(method: http.RequestMethod, url: string, body?: Record<string, string>, extraHeaders?: Record<string, string>): Promise<string> {
