@@ -121,7 +121,28 @@ export class ForumRepository {
     const resultHtml = await HttpClient.post(submitUrl, body, headers);
     return ForumParser.parseLoginResult(resultHtml);
   }
+
+  // 获取特定版块的帖子列表
+  async forumPage(fid: string, page: number, sort: ForumSort = ForumSort.LATEST): Promise<ForumPage> {
+    // 对齐原版：拼装排序参数
+    let sortParam = "";
+    if (sort === ForumSort.HOT) sortParam = "&orderby=hot";
+    else if (sort === ForumSort.DIGEST) sortParam = "&filter=digest";
+    else if (sort === ForumSort.POLL) sortParam = "&filter=poll";
+    
+    const url = `forum.php?mod=forumdisplay&fid=${fid}&page=${page}${sortParam}&mobile=2`;
+    const html = await HttpClient.get(url);
+    const fp = ForumParser.parseForumPage(html, page);
+    
+    const blocked = this.currentBlocked();
+    if (blocked.size > 0) {
+      fp.announcements = fp.announcements.filter((t: Thread) => !(t.authorUid && blocked.has(t.authorUid)));
+      fp.threads = fp.threads.filter((t: Thread) => !(t.authorUid && blocked.has(t.authorUid)));
+    }
+    return fp;
+  }
 }
+
 
 
 export const forumRepository = new ForumRepository();

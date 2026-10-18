@@ -2,6 +2,7 @@
   "src": [
     "pages/Index",
     "pages/ThreadDetail",
-    "pages/Login"
+    "pages/Login",
+    "pages/ForumPageList"
   ]
 }
