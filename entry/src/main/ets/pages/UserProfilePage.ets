@@ -24,7 +24,7 @@ struct UserProfilePage {
     this.isLoading = true;
     try {
       this.profile = await forumRepository.fetchUserProfile(this.uid);
-      const res = await forumRepository.userThreads(this.uid);
+      const res: MyThreadPage = await forumRepository.userThreads(this.uid);
       this.threads = res.threads;
     } catch (e) {
       console.error(e);

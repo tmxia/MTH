@@ -280,7 +280,14 @@ export class ForumRepository {
     const html = await HttpClient.get(url);
     return ForumParser.parseUserProfile(html, uid);
   }
+
+  async userThreads(uid: string, type: string = "thread", page: number = 1): Promise<MyThreadPage> {
+    const url = `home.php?mod=space&uid=${uid}&do=thread&view=me&type=${type}&page=${page}&mobile=2`;
+    const html = await HttpClient.get(url);
+    return ForumParser.parseMyThreads(html, page);
+  }
 }
+
 
 
 
