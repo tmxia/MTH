@@ -41,7 +41,7 @@ struct PostEdit {
     }
     try {
       let photoPicker = new picker.PhotoViewPicker();
-      let res = await photoPicker.select({ maxSelectNumber: 1, MIMEType: picker.PhotoViewMIMETypes.IMAGE_TYPE });
+      let res: picker.PhotoSelectResult = await photoPicker.select({ maxSelectNumber: 1, MIMEType: picker.PhotoViewMIMETypes.IMAGE_TYPE });
       if (res.photoUris.length > 0) {
         this.isUploading = true;
         let img = await forumRepository.uploadImage(res.photoUris[0], this.initData.uploadUid, this.initData.uploadHash);

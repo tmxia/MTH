@@ -419,3 +419,21 @@ export class HistoryItem {
   viewedAt: number = 0;
   type: string = "thread";
 }
+
+export class ImageUpload {
+  aid: string = "";
+  path: string = "";
+}
+
+export class NewThreadPageData {
+  formhash: string = "";
+  posttime: string | null = null;
+  uploadUid: string | null = null;
+  uploadHash: string | null = null;
+}
+
+export class NewThreadResult {
+  success: boolean = false;
+  tid: string | null = null;
+  message: string | null = null;
+}

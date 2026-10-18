@@ -116,7 +116,7 @@ export class HttpClient {
 
     try {
       let uploadTask = await request.uploadFile(getContext(), uploadConfig);
-      return new Promise((resolve, reject) => {
+      return new Promise<string>((resolve, reject) => {
         uploadTask.on('complete', (taskStates: Array<request.TaskState>) => {
           // 读取上传后的服务器响应比较麻烦，通常这里需要发个回调
           // 由于鸿蒙 API 限制，这里为了简化，如果上传成功返回 true

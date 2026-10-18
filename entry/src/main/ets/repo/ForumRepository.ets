@@ -215,7 +215,7 @@ export class ForumRepository {
     
     // 注意：鸿蒙原生上传回调获取服务器返回内容较复杂，这里先作为上传成功处理
     // 实际项目中需要通过 request.uploadFile 的回调或临时文件读取服务器返回
-    const res = await HttpClient.uploadFile(url, filePath, formData);
+    const res: string = await HttpClient.uploadFile(url, filePath, formData);
     if (res === "UPLOAD_SUCCESS") {
        // 此处需配合真实抓包，由于暂时拿不到服务器返回的 aid 和 path，给默认值
        const img = new ImageUpload();
