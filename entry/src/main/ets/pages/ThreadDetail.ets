@@ -138,7 +138,7 @@ struct ThreadDetail {
         if (node.type === 'text') {
           Text(node.content).fontSize(15).fontColor('#333').lineHeight(24).copyOption(CopyOptions.LocalDevice).width('100%')
         } else if (node.type === 'image') {
-          NetImage({ src: node.content, width: '100%', borderRadius: 6 })
+          NetImage({ src: node.content, imgWidth: '100%', imgRadius: 6 })
             .margin({ top: 5, bottom: 5 })
         }
       }, (node: RichTextNode, index: number) => `${post.pid}-${index}`)

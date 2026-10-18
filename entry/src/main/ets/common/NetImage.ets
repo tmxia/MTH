@@ -4,10 +4,10 @@ import { image } from '@kit.ImageKit';
 @Component
 export struct NetImage {
   @Prop src: string = '';
+  @Prop imgWidth: Length = '100%';
+  @Prop imgHeight: Length = 200;
+  @Prop imgRadius: Length = 0;
   @State pixelMap: image.PixelMap | undefined = undefined;
-  @Prop width: Length = '100%';
-  @Prop height: Length = 200;
-  @Prop borderRadius: Length = 0;
 
   async loadImage() {
     if (!this.src) return;
@@ -22,10 +22,10 @@ export struct NetImage {
 
   build() {
     Image(this.pixelMap)
-      .width(this.width)
-      .height(this.pixelMap ? 'auto' : this.height) // 如果加载了，高度自适应，否则给个占位
+      .width(this.imgWidth)
+      .height(this.pixelMap ? 'auto' : this.imgHeight)
       .objectFit(ImageFit.Contain)
-      .borderRadius(this.borderRadius)
+      .borderRadius(this.imgRadius)
       .backgroundColor('#F0F0F0')
       .onAppear(() => this.loadImage())
   }
