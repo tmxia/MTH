@@ -293,7 +293,32 @@ export class ForumRepository {
     const html = await HttpClient.get(url);
     return html.includes("succeedhandle") || html.includes("关注成功") || html.includes("已取消关注");
   }
+
+  async likeThread(tid: string, formhash: string, like: boolean): Promise<LikeResult> {
+    const url = `forum.php?mod=misc&action=recommend&do=add&tid=${tid}&formhash=${formhash}&mobile=2`;
+    const html = await HttpClient.get(url);
+    const result = new LikeResult();
+    result.success = html.includes("感谢您的参与") || html.includes("succeedhandle");
+    result.message = result.success ? "操作成功" : "操作失败";
+    return result;
+  }
+
+  async favoriteThread(tid: string, formhash: string): Promise<ReplyResult> {
+    const url = `home.php?mod=spacecp&ac=favorite&type=thread&id=${tid}&formhash=${formhash}&mobile=2`;
+    const html = await HttpClient.get(url);
+    const result = new ReplyResult();
+    result.success = html.includes("收藏成功") || html.includes("succeedhandle");
+    result.message = result.success ? "收藏成功" : "收藏失败";
+    return result;
+  }
+
+  async userThreads(uid: string, page: number = 1): Promise<MyThreadPage> {
+    const url = `home.php?mod=space&uid=${uid}&do=thread&view=me&type=thread&page=${page}&mobile=2`;
+    const html = await HttpClient.get(url);
+    return ForumParser.parseMyThreads(html, page);
+  }
 }
+
 
 
 

@@ -2,7 +2,6 @@ import { forumRepository } from '../repo/ForumRepository';
 import { ThreadPage, Post, RichTextNode } from '../models/Models';
 import { ForumParser } from '../parser/ForumParser';
 import { NetImage } from '../common/NetImage';
-import { MtfColors, CARD_SHADOW } from '../common/Theme';
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 
@@ -16,6 +15,7 @@ struct ThreadDetail {
   @State isSending: boolean = false;
   @State parsedRichText: Map<string, Array<RichTextNode>> = new Map();
   @State isLiked: boolean = false;
+  @State isFavorited: boolean = false;
 
   async aboutToAppear() {
     const params = router.getParams() as Record<string, string>;
@@ -32,8 +32,11 @@ struct ThreadDetail {
     try {
       const data = await forumRepository.threadPage(tid, page);
       this.tp = data;
-      this.isLiked = data.isLiked;
       
+      // 初始化点赞/收藏状态
+      this.isLiked = data.isLiked;
+      this.isFavorited = data.isFavorited;
+
       const newMap = new Map<string, Array<RichTextNode>>();
       for (const post of data.posts) {
         newMap.set(post.pid, ForumParser.parseRichText(post.contentHtml));
@@ -68,12 +71,12 @@ struct ThreadDetail {
   async doLike() {
     if (!this.tp || !this.tp.formhash) return;
     try {
-      const ok = await forumRepository.toggleLike(this.tp.tid, this.tp.formhash, !this.isLiked);
-      if (ok) {
+      const res = await forumRepository.likeThread(this.tp.tid, this.tp.formhash, !this.isLiked);
+      if (res.success) {
         this.isLiked = !this.isLiked;
-        promptAction.showToast({ message: this.isLiked ? '点赞成功' : '已取消点赞' });
+        promptAction.showToast({ message: this.isLiked ? '点赞成功' : '已取消' });
       } else {
-        promptAction.showToast({ message: '操作失败，可能未登录' });
+        promptAction.showToast({ message: res.message || '操作受限' });
       }
     } catch (e) {
       promptAction.showToast({ message: '网络异常' });
@@ -83,12 +86,12 @@ struct ThreadDetail {
   async doFavorite() {
     if (!this.tp || !this.tp.formhash) return;
     try {
-      const ok = await forumRepository.toggleFavorite(this.tp.tid, this.tp.formhash, !this.tp.isFavorited);
-      if (ok) {
-        this.tp.isFavorited = !this.tp.isFavorited;
-        promptAction.showToast({ message: this.tp.isFavorited ? '收藏成功' : '已取消收藏' });
+      const res = await forumRepository.favoriteThread(this.tp.tid, this.tp.formhash);
+      if (res.success) {
+        this.isFavorited = !this.isFavorited;
+        promptAction.showToast({ message: '收藏成功' });
       } else {
-        promptAction.showToast({ message: '操作失败' });
+        promptAction.showToast({ message: res.message || '收藏失败' });
       }
     } catch (e) {
       promptAction.showToast({ message: '网络异常' });
@@ -98,13 +101,13 @@ struct ThreadDetail {
   build() {
     Column() {
       Row() {
-        Text('< 返回').fontSize(16).fontColor(MtfColors.textMain).onClick(() => router.back())
+        Text('< 返回').fontSize(16).fontColor('#333').onClick(() => router.back())
         Text('帖子详情').fontSize(18).fontWeight(FontWeight.Bold).layoutWeight(1).textAlign(TextAlign.Center)
         Blank().width(40)
-      }.width('100%').height(50).padding({ left: 16, right: 16 }).backgroundColor(MtfColors.bgWhite)
+      }.width('100%').height(50).padding({ left: 16, right: 16 }).backgroundColor('#FFFFFF')
 
       if (this.isLoading && !this.tp) {
-        LoadingProgress().width(50).height(50).color(MtfColors.primary).margin({ top: 100 })
+        LoadingProgress().width(50).height(50).color('#4D6BFE').margin({ top: 100 })
       } else if (this.errorMsg !== '') {
         Text(this.errorMsg).fontSize(16).fontColor(Color.Red).margin({ top: 100 })
       } else if (this.tp) {
@@ -112,14 +115,14 @@ struct ThreadDetail {
           List() {
             ListItem() {
               Column({ space: 8 }) {
-                Text(this.tp.subject || '无标题').fontSize(20).fontWeight(FontWeight.Bold).fontColor(MtfColors.textMainColor)
+                Text(this.tp.subject || '无标题').fontSize(20).fontWeight(FontWeight.Bold).fontColor('#111')
                 Row() {
-                  Text(this.tp.forumName || '未知版块').fontSize(12).fontColor(MtfColors.primary)
+                  Text(this.tp.forumName || '未知版块').fontSize(12).fontColor('#4D6BFE')
                   Blank()
-                  Text(`共 ${this.tp.totalReplies || 0} 回复`).fontSize(12).fontColor(MtfColors.textLight)
+                  Text(`共 ${this.tp.totalReplies || 0} 回复`).fontSize(12).fontColor('#999')
                 }.width('100%')
               }
-              .width('100%').padding(16).backgroundColor(MtfColors.bgWhite).alignItems(HorizontalAlign.Start)
+              .width('100%').padding(16).backgroundColor('#FFFFFF').alignItems(HorizontalAlign.Start)
             }
 
             ForEach(this.tp.posts, (post: Post) => {
@@ -128,25 +131,24 @@ struct ThreadDetail {
               }
             }, (post: Post) => post.pid)
           }
-          .width('100%').layoutWeight(1).backgroundColor(MtfColors.bgLight)
+          .width('100%').layoutWeight(1).backgroundColor('#F5F5F5')
 
-          // 底部操作栏 + 回复框
-          Column() {
-            Row() {
-              Text(this.isLiked ? '❤️ 已赞' : '🤍 点赞').fontSize(14).fontColor(this.isLiked ? '#FF3B30' : '#666').onClick(() => this.doLike())
-              Blank()
-              Text(this.tp?.isFavorited ? '⭐ 已收藏' : '☆ 收藏').fontSize(14).fontColor(this.tp?.isFavorited ? '#FFB800' : '#666').onClick(() => this.doFavorite())
-            }.width('100%').padding({ left: 15, right: 15, top: 5, bottom: 5 })
+          // 底部交互栏 (回复 + 点赞 + 收藏)
+          Row({ space: 10 }) {
+            TextInput({ placeholder: '写点什么...', text: this.replyText })
+              .layoutWeight(1).height(40).backgroundColor('#F0F0F0').borderRadius(20)
+              .onChange((val: string) => this.replyText = val)
+            
+            Button('发送')
+              .height(40).backgroundColor('#4D6BFE').fontColor('#FFFFFF')
+              .enabled(!this.isSending && this.replyText.trim().length > 0)
+              .onClick(() => this.submitReply())
+              .margin({ right: 5 })
 
-            Row({ space: 10 }) {
-              TextInput({ placeholder: '写点什么...', text: this.replyText })
-                .layoutWeight(1).height(40).backgroundColor(MtfColors.bgLightColor).borderRadius(20)
-                .onChange((val: string) => this.replyText = val)
-              Button('发送').height(40).backgroundColor(MtfColors.primary).fontColor(MtfColors.bgWhite)
-                .enabled(!this.isSending && this.replyText.trim().length > 0)
-                .onClick(() => this.submitReply())
-            }.width('100%').padding(10)
-          }.backgroundColor(MtfColors.bgWhite).border({ width: { top: 0.5 }, color: MtfColors.dividerColor })
+            Text(this.isLiked ? '❤️' : '🤍').fontSize(24).onClick(() => this.doLike())
+            Text(this.isFavorited ? '⭐' : '☆').fontSize(24).onClick(() => this.doFavorite())
+          }
+          .width('100%').padding(10).backgroundColor('#FFFFFF').border({ width: { top: 0.5 }, color: '#EEEEEE' })
         }.layoutWeight(1)
       }
     }.width('100%').height('100%')
@@ -165,23 +167,24 @@ struct ThreadDetail {
           })
         Column() {
           Text(post.authorName || '匿名').fontSize(14).fontWeight(FontWeight.Medium)
-          Text(post.timeText || '刚刚').fontSize(11).fontColor(MtfColors.textLight)
+          Text(post.timeText || '刚刚').fontSize(11).fontColor('#999')
         }.alignItems(HorizontalAlign.Start)
         Blank()
         if (post.isOp) {
-          Text('楼主').fontSize(10).fontColor(MtfColors.bgWhite).backgroundColor(MtfColors.primary).padding({ left: 4, right: 4, top: 1, bottom: 1 }).borderRadius(4)
+          Text('楼主').fontSize(10).fontColor('#FFFFFF').backgroundColor('#4D6BFE').padding({ left: 4, right: 4, top: 1, bottom: 1 }).borderRadius(4)
         }
-        Text(post.floorLabel || '').fontSize(12).fontColor(MtfColors.textLight)
+        Text(post.floorLabel || '').fontSize(12).fontColor('#999')
       }.width('100%')
 
       ForEach(this.parsedRichText.get(post.pid) || [], (node: RichTextNode) => {
         if (node.type === 'text') {
-          Text(node.content).fontSize(15).fontColor(MtfColors.textMain).fontWeight(node.isBold ? FontWeight.Bold : FontWeight.Normal).lineHeight(24).copyOption(CopyOptions.LocalDevice).width('100%')
+          Text(node.content).fontSize(15).fontColor('#333').lineHeight(24).copyOption(CopyOptions.LocalDevice).width('100%')
         } else if (node.type === 'image') {
-          NetImage({ src: node.content, imgWidth: '100%', imgRadius: 6 }).margin({ top: 5, bottom: 5 })
+          NetImage({ src: node.content, imgWidth: '100%', imgRadius: 6 })
+            .margin({ top: 5, bottom: 5 })
         }
       }, (node: RichTextNode, index: number) => `${post.pid}-${index}`)
     }
-    .width('100%').padding(16).backgroundColor(MtfColors.bgWhite).margin({ top: 8 })
+    .width('100%').padding(16).backgroundColor('#FFFFFF').margin({ top: 8 })
   }
 }
