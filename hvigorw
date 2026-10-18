@@ -1,0 +1,10 @@
+#!/bin/bash
+# Hvigor wrapper script
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+export PATH="$DIR/hvigor/bin:$PATH"
+if [ -f "$DIR/hvigor/bin/hvigorw" ]; then
+    "$DIR/hvigor/bin/hvigorw" "$@"
+else
+    # 如果没找到内置 hvigor，尝试使用全局的
+    hvigorw "$@"
+fi
