@@ -2,6 +2,7 @@ import { forumRepository } from '../repo/ForumRepository';
 import { NewThreadPageData, ImageUpload } from '../models/Models';
 import { DraftStore, DraftData } from '../common/DraftStore';
 import { MtfColors } from '../common/Theme';
+import { SmileyPanel } from '../common/SmileyPanel';
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
@@ -17,6 +18,7 @@ struct PostEdit {
   @State content: string = '';
   @State isUploading: boolean = false;
   @State isSubmitting: boolean = false;
+  @State showSmiley: boolean = false;
 
   async aboutToAppear() {
     let context = this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -138,7 +140,19 @@ struct PostEdit {
             .backgroundColor(MtfColors.primaryLight).fontColor(MtfColors.primary)
             .enabled(!this.isUploading)
             .onClick(() => this.selectImage())
+            
+          Button('插入表情')
+            .backgroundColor(MtfColors.bgLight).fontColor(MtfColors.textMainColor)
+            .onClick(() => { this.showSmiley = !this.showSmiley; })
         }.width('100%')
+        
+        if (this.showSmiley) {
+          SmileyPanel({
+            onSelect: (code: string) => {
+              this.content += code;
+            }
+          })
+        }
       }
       .width('100%').padding(15)
     }.width('100%').height('100%').backgroundColor(MtfColors.bgWhite)
