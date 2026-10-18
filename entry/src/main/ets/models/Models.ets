@@ -439,3 +439,10 @@ export class RichTextNode {
   type: string = ""; // "text" | "image"
   content: string = "";
 }
+
+export class ActionState {
+  liked: boolean = false;
+  likedKnown: boolean = false;
+  favorited: boolean = false;
+  favoritedKnown: boolean = false;
+}

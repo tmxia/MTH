@@ -14,6 +14,7 @@ struct ThreadDetail {
   @State replyText: string = '';
   @State isSending: boolean = false;
   @State parsedRichText: Map<string, Array<RichTextNode>> = new Map();
+  @State isLiked: boolean = false;
 
   async aboutToAppear() {
     const params = router.getParams() as Record<string, string>;
@@ -30,14 +31,13 @@ struct ThreadDetail {
     try {
       const data = await forumRepository.threadPage(tid, page);
       this.tp = data;
+      this.isLiked = data.isLiked;
       
-      // 预处理所有帖子的富文本节点
       const newMap = new Map<string, Array<RichTextNode>>();
       for (const post of data.posts) {
         newMap.set(post.pid, ForumParser.parseRichText(post.contentHtml));
       }
       this.parsedRichText = newMap;
-      
     } catch (e) {
       this.errorMsg = (e as Error).message;
     } finally {
@@ -64,9 +64,23 @@ struct ThreadDetail {
     }
   }
 
+  async doLike() {
+    if (!this.tp || !this.tp.formhash) return;
+    try {
+      const ok = await forumRepository.toggleLike(this.tp.tid, this.tp.formhash, !this.isLiked);
+      if (ok) {
+        this.isLiked = !this.isLiked;
+        promptAction.showToast({ message: this.isLiked ? '点赞成功' : '已取消点赞' });
+      } else {
+        promptAction.showToast({ message: '操作失败，可能未登录' });
+      }
+    } catch (e) {
+      promptAction.showToast({ message: '网络异常' });
+    }
+  }
+
   build() {
     Column() {
-      // 顶部导航 (主色调 DeepSeek 蓝)
       Row() {
         Text('< 返回').fontSize(16).fontColor('#333').onClick(() => router.back())
         Text('帖子详情').fontSize(18).fontWeight(FontWeight.Bold).layoutWeight(1).textAlign(TextAlign.Center)
@@ -100,17 +114,23 @@ struct ThreadDetail {
           }
           .width('100%').layoutWeight(1).backgroundColor('#F5F5F5')
 
-          // 底部回复框
-          Row({ space: 10 }) {
-            TextInput({ placeholder: '写点什么...', text: this.replyText })
-              .layoutWeight(1).height(40).backgroundColor('#F0F0F0').borderRadius(20)
-              .onChange((val: string) => this.replyText = val)
-            Button('发送')
-              .height(40).backgroundColor('#4D6BFE').fontColor('#FFFFFF')
-              .enabled(!this.isSending && this.replyText.trim().length > 0)
-              .onClick(() => this.submitReply())
-          }
-          .width('100%').padding(10).backgroundColor('#FFFFFF').border({ width: { top: 0.5 }, color: '#EEEEEE' })
+          // 底部操作栏 + 回复框
+          Column() {
+            Row() {
+              Text(this.isLiked ? '❤️ 已赞' : '🤍 点赞').fontSize(14).fontColor(this.isLiked ? '#FF3B30' : '#666').onClick(() => this.doLike())
+              Blank()
+              Text('收藏').fontSize(14).fontColor('#666')
+            }.width('100%').padding({ left: 15, right: 15, top: 5, bottom: 5 })
+
+            Row({ space: 10 }) {
+              TextInput({ placeholder: '写点什么...', text: this.replyText })
+                .layoutWeight(1).height(40).backgroundColor('#F0F0F0').borderRadius(20)
+                .onChange((val: string) => this.replyText = val)
+              Button('发送').height(40).backgroundColor('#4D6BFE').fontColor('#FFFFFF')
+                .enabled(!this.isSending && this.replyText.trim().length > 0)
+                .onClick(() => this.submitReply())
+            }.width('100%').padding(10)
+          }.backgroundColor('#FFFFFF').border({ width: { top: 0.5 }, color: '#EEEEEE' })
         }.layoutWeight(1)
       }
     }.width('100%').height('100%')
@@ -133,21 +153,13 @@ struct ThreadDetail {
         Text(post.floorLabel || '').fontSize(12).fontColor('#999')
       }.width('100%')
 
-      // 渲染富文本 (图文混排)
       ForEach(this.parsedRichText.get(post.pid) || [], (node: RichTextNode) => {
         if (node.type === 'text') {
           Text(node.content).fontSize(15).fontColor('#333').lineHeight(24).copyOption(CopyOptions.LocalDevice).width('100%')
         } else if (node.type === 'image') {
-          NetImage({ src: node.content, imgWidth: '100%', imgRadius: 6 })
-            .margin({ top: 5, bottom: 5 })
+          NetImage({ src: node.content, imgWidth: '100%', imgRadius: 6 }).margin({ top: 5, bottom: 5 })
         }
       }, (node: RichTextNode, index: number) => `${post.pid}-${index}`)
-
-      Row() {
-        Text('回复').fontSize(12).fontColor('#666')
-        Blank()
-        Text('点赞').fontSize(12).fontColor('#666')
-      }.width('100%').margin({ top: 10 }).padding({ top: 10 }).border({ width: { top: 0.5 }, color: '#EEEEEE' })
     }
     .width('100%').padding(16).backgroundColor('#FFFFFF').margin({ top: 8 })
   }

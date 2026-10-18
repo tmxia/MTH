@@ -260,7 +260,22 @@ export class ForumRepository {
     const html = await HttpClient.post(url, bodyStr, { "Referer": HttpClient.baseUrl + `home.php?mod=space&do=pm&subop=view&touid=${touid}` });
     return html.includes("发送成功") || html.includes("succeedhandle");
   }
+
+  async toggleLike(tid: string, formhash: string, like: boolean): Promise<boolean> {
+    const url = `forum.php?mod=misc&action=recommend&do=add&tid=${tid}&formhash=${formhash}&mobile=2`;
+    // Discuz 点赞/取消点赞通常也是 GET
+    const html = await HttpClient.get(url);
+    return html.includes("succeedhandle") || html.includes("推荐成功") || html.includes("已取消");
+  }
+
+  async toggleFavorite(tid: string, formhash: string, fav: boolean): Promise<boolean> {
+    const action = fav ? "favorite" : "unfavorite";
+    const url = `home.php?mod=spacecp&ac=favorite&type=thread&id=${tid}&formhash=${formhash}&mobile=2&op=${action}`;
+    const html = await HttpClient.get(url);
+    return html.includes("succeedhandle") || html.includes("收藏成功") || html.includes("取消收藏");
+  }
 }
+
 
 
 
