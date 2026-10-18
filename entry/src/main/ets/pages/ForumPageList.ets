@@ -2,6 +2,7 @@ import { forumRepository, ForumSort } from '../repo/ForumRepository';
 import { ForumPage, Thread } from '../models/Models';
 import { NetImage } from '../common/NetImage';
 import { MtfColors } from '../common/Theme';
+import { SkeletonThreadCard } from '../common/SkeletonCard';
 import router from '@ohos.router';
 
 @Entry
@@ -91,7 +92,15 @@ struct ForumPageList {
       }.width('100%').padding({ left: 16, top: 10, bottom: 10 }).backgroundColor(MtfColors.bgWhiteColor)
 
       if (this.isLoading && this.threads.length === 0) {
-        LoadingProgress().width(50).height(50).color(MtfColors.primary).margin({ top: 100 })
+        List({ space: 10 }) {
+          ForEach([1, 2, 3, 4, 5], (item: number) => {
+            ListItem() { SkeletonThreadCard() }
+          }, (item: number) => item.toString())
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .padding(10)
+        .backgroundColor(MtfColors.bgLightColor)
       } else if (this.errorMsg !== '') {
         Text(this.errorMsg).fontSize(16).fontColor(Color.Red).margin({ top: 100 })
       } else {

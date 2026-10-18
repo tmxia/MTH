@@ -2,6 +2,7 @@ import { cookieManager } from '../network/CookieManager';
 import { forumRepository } from '../repo/ForumRepository';
 import { Thread, ForumGroup, Forum, UserProfile, CheckInStatus } from '../models/Models';
 import { NetImage } from '../common/NetImage';
+import { SkeletonThreadCard } from '../common/SkeletonCard';
 import common from '@ohos.app.ability.common';
 import { MtfColors, CARD_SHADOW } from '../common/Theme';
 import router from '@ohos.router';
@@ -11,15 +12,25 @@ import promptAction from '@ohos.promptAction';
 @Component
 struct Index {
   @State currentIndex: number = 0;
+  @StorageLink('unreadCount') unreadCount: number = 0;
   aboutToAppear() {
     AppStorage.setOrCreate('isDark', false);
+    AppStorage.setOrCreate('unreadCount', 0);
   }
 
   build() {
     Tabs({ barPosition: BarPosition.End }) {
       TabContent() { HomeTab() }.tabBar('首页')
       TabContent() { ForumTab() }.tabBar('版块')
-      TabContent() { ProfileTab() }.tabBar('我的')
+      TabContent() { ProfileTab() }.tabBar(
+        Badge({
+          count: this.unreadCount,
+          position: BadgePosition.RightTop,
+          style: { badgeSize: 16, badgeColor: MtfColors.danger }
+        }) {
+          Text('我的').fontSize(16)
+        }.width(50).height(30)
+      )
     }
     .onChange((index: number) => { this.currentIndex = index; })
   }
@@ -85,7 +96,15 @@ struct HomeTab {
       }.width('100%').height(50).padding({ left: 16, right: 16 }).backgroundColor(MtfColors.bgWhite)
 
       if (this.isLoading && this.threads.length === 0) {
-        LoadingProgress().width(50).height(50).color(MtfColors.primary).margin({ top: 100 })
+        List({ space: 10 }) {
+          ForEach([1, 2, 3, 4, 5], (item: number) => {
+            ListItem() { SkeletonThreadCard() }
+          }, (item: number) => item.toString())
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .padding(10)
+        .backgroundColor(MtfColors.bgLightColor)
       } else if (this.errorMsg !== '') {
         Text(this.errorMsg).fontSize(16).fontColor(Color.Red).margin({ top: 100 })
       } else {
@@ -215,7 +234,18 @@ struct ProfileTab {
     this.isLoading = true;
     try {
       this.profile = await forumRepository.me();
-      if (this.profile.isLoggedIn) { this.checkInStatus = await forumRepository.checkInStatus(); }
+      if (this.profile.isLoggedIn) { 
+        this.checkInStatus = await forumRepository.checkInStatus();
+        // 拉取未读消息
+        const notices = await forumRepository.notices();
+        if (!notices.loggedOut) {
+          AppStorage.setOrCreate('unreadCount', notices.notices.length);
+        } else {
+          AppStorage.setOrCreate('unreadCount', 0);
+        }
+      } else {
+        AppStorage.setOrCreate('unreadCount', 0);
+      }
     } catch (e) { console.error(e); } 
     finally { this.isLoading = false; }
   }
@@ -282,6 +312,10 @@ struct ProfileTab {
           }.width('100%').backgroundColor(MtfColors.bgWhite).borderRadius(12)
 
           Button('退出登录').width('100%').height(45).backgroundColor('#FF3B30').fontColor(MtfColors.bgWhite).margin({ top: 20 }).onClick(() => this.doLogout())
+          Text('MTF Harmony v1.0.0')
+            .fontSize(12).fontColor(MtfColors.textLight).margin({ top: 30, bottom: 20 })
+            .width('100%').textAlign(TextAlign.Center)
+            .onClick(() => { promptAction.showToast({ message: '已是最新版本' }); })
         }.width('90%').margin({ top: 20 })
       } else {
         Column({ space: 20 }) {
