@@ -1,4 +1,4 @@
-import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult, UserProfile, CheckInStatus, CheckInResult } from '../models/Models';
+import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult, UserProfile, CheckInStatus, CheckInResult, Notice, NoticePage, ReplyResult } from '../models/Models';
 
 const RE_FID = /forum-(\d+)-/;
 const RE_TID = /thread-(\d+)-/;
@@ -332,6 +332,9 @@ export class ForumParser {
     const fhMatch = /name="formhash" value="([^"]+)"/i.exec(html);
     if (fhMatch) tp.formhash = fhMatch[1];
 
+    const fidMatch = /fid=(\\d+)/.exec(html);
+    if (fidMatch) tp.fid = fidMatch[1];
+
     const posts: Array<Post> = [];
     const postBlockRegex = /<div[^>]*id="pid(\d+)"[^>]*class="[^"]*comiis_postli[^"]*"[^>]*>([\s\S]*?)<div[^>]*class="[^"]*comiis_postli_bottom[^"]*"/gi;
     let pMatch: RegExpExecArray | null;
@@ -514,7 +517,70 @@ export class ForumParser {
     }
     return result;
   }
+
+  // ==========================================
+  // 9. 消息通知解析
+  // ==========================================
+  static parseNoticePage(html: string): NoticePage {
+    const page = new NoticePage();
+    
+    // 若包含未登录提示，直接返回
+    if (html.includes("您需要先登录") || html.includes("立即登录")) {
+      page.loggedOut = true;
+      return page;
+    }
+
+    // 匹配消息列表项
+    const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+    let match: RegExpExecArray | null;
+    
+    while ((match = liRegex.exec(html)) !== null) {
+      const li = match[1];
+      // 提取消息特有的结构：一般有头像和内容
+      const textMatch = /<p[^>]*>([\s\S]*?)<\/p>/i.exec(li);
+      const timeMatch = /<span[^>]*>([\s\S]*?)<\/span>/i.exec(li);
+      
+      if (textMatch) {
+        const notice = new Notice();
+        notice.id = Math.random().toString(36).substr(2, 9); // 随机生成ID
+        notice.text = stripInvisible(textMatch[1].replace(/<[^>]+>/g, ''));
+        notice.timeText = timeMatch ? stripInvisible(timeMatch[1]) : null;
+        
+        // 尝试提取对应的帖子链接
+        const tidMatch = /thread-(\d+)/.exec(li);
+        if (tidMatch) notice.tid = tidMatch[1];
+
+        if (notice.text.length > 0) {
+          page.notices.push(notice);
+        }
+      }
+    }
+    return page;
+  }
+
+  // ==========================================
+  // 10. 帖子回复结果解析
+  // ==========================================
+  static parseReplyResponse(html: string): ReplyResult {
+    const result = new ReplyResult();
+    
+    if (html.includes("回复成功") || html.includes("感谢您的回复") || html.includes("succeedhandle")) {
+      result.success = true;
+      result.message = "回复成功";
+    } else {
+      result.success = false;
+      // 提取错误信息
+      const errMatch = /id=["']messagetext["'][^>]*>([\s\S]*?)<\/dt>/i.exec(html);
+      if (errMatch) {
+        result.message = stripInvisible(errMatch[1].replace(/<[^>]+>/g, ''));
+      } else {
+        result.message = "回复失败，可能包含敏感词或被限制";
+      }
+    }
+    return result;
+  }
 }
+
 
 
 

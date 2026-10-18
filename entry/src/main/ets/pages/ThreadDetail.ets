@@ -8,6 +8,8 @@ struct ThreadDetail {
   @State tp: ThreadPage | null = null;
   @State isLoading: boolean = true;
   @State errorMsg: string = '';
+  @State replyText: string = '';
+  @State isSending: boolean = false;
 
   async aboutToAppear() {
     const params = router.getParams() as Record<string, string>;
@@ -47,29 +49,72 @@ struct ThreadDetail {
       } else if (this.errorMsg !== '') {
         Text(this.errorMsg).fontSize(16).fontColor(Color.Red).margin({ top: 100 })
       } else if (this.tp) {
-        List() {
-          ListItem() {
-            Column({ space: 8 }) {
-              Text(this.tp.subject || '无标题').fontSize(20).fontWeight(FontWeight.Bold).fontColor('#111')
-              Row() {
-                Text(this.tp.forumName || '未知版块').fontSize(12).fontColor('#4D6BFE')
-                Blank()
-                Text(`共 ${this.tp.totalReplies || 0} 回复`).fontSize(12).fontColor('#999')
-              }.width('100%')
-            }
-            .width('100%').padding(16).backgroundColor('#FFFFFF').alignItems(HorizontalAlign.Start)
-          }
-
-          ForEach(this.tp.posts, (post: Post) => {
+        Column() {
+          List() {
             ListItem() {
-              this.PostCard(post)
+              Column({ space: 8 }) {
+                Text(this.tp.subject || '无标题').fontSize(20).fontWeight(FontWeight.Bold).fontColor('#111')
+                Row() {
+                  Text(this.tp.forumName || '未知版块').fontSize(12).fontColor('#4D6BFE')
+                  Blank()
+                  Text(`共 ${this.tp.totalReplies || 0} 回复`).fontSize(12).fontColor('#999')
+                }.width('100%')
+              }
+              .width('100%').padding(16).backgroundColor('#FFFFFF').alignItems(HorizontalAlign.Start)
             }
-          }, (post: Post) => post.pid)
+
+            ForEach(this.tp.posts, (post: Post) => {
+              ListItem() {
+                this.PostCard(post)
+              }
+            }, (post: Post) => post.pid)
+          }
+          .width('100%').layoutWeight(1).backgroundColor('#F5F5F5')
+
+          // 底部回复框
+          Row({ space: 10 }) {
+            TextInput({ placeholder: '写点什么...', text: this.replyText })
+              .layoutWeight(1)
+              .height(40)
+              .backgroundColor('#F0F0F0')
+              .borderRadius(20)
+              .onChange((val: string) => this.replyText = val)
+            
+            Button('发送')
+              .height(40)
+              .backgroundColor('#4D6BFE')
+              .fontColor('#FFFFFF')
+              .enabled(!this.isSending && this.replyText.trim().length > 0)
+              .onClick(() => this.submitReply())
+          }
+          .width('100%')
+          .padding(10)
+          .backgroundColor('#FFFFFF')
+          .border({ width: { top: 0.5 }, color: '#EEEEEE' })
         }
-        .width('100%').layoutWeight(1).backgroundColor('#F5F5F5')
+        .width('100%').layoutWeight(1)
       }
     }
     .width('100%').height('100%')
+  }
+
+  async submitReply() {
+    if (!this.tp || !this.tp.formhash) return;
+    this.isSending = true;
+    try {
+      const res = await forumRepository.reply(this.tp.tid, this.tp.fid || '0', this.tp.formhash, this.replyText);
+      if (res.success) {
+        promptAction.showToast({ message: '回复成功' });
+        this.replyText = '';
+        await this.loadData(this.tp.tid, this.tp.page); // 刷新页面
+      } else {
+        promptAction.showToast({ message: res.message || '回复失败' });
+      }
+    } catch (e) {
+      promptAction.showToast({ message: '网络异常' });
+    } finally {
+      this.isSending = false;
+    }
   }
 
   @Builder

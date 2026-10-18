@@ -3,6 +3,7 @@
     "pages/Index",
     "pages/ThreadDetail",
     "pages/Login",
-    "pages/ForumPageList"
+    "pages/ForumPageList",
+    "pages/Notices"
   ]
 }

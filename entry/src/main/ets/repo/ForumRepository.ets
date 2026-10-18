@@ -1,5 +1,5 @@
 import { HttpClient } from '../network/HttpClient';
-import { ForumGroup, HomeData, ForumPage, Thread, ThreadPage, LoginResult, UserProfile, CheckInStatus, CheckInResult } from '../models/Models';
+import { ForumGroup, HomeData, ForumPage, Thread, ThreadPage, LoginResult, UserProfile, CheckInStatus, CheckInResult, NoticePage, ReplyResult } from '../models/Models';
 import { ForumParser } from '../parser/ForumParser';
 
 export enum ForumSort {
@@ -160,7 +160,28 @@ export class ForumRepository {
     const html = await HttpClient.get(url); // 通常签到请求是 GET
     return ForumParser.parseCheckInResponse(html);
   }
+
+  // 获取消息通知（简化版：拉取我的帖子提醒）
+  async notices(): Promise<NoticePage> {
+    // 默认拉取系统消息和帖子提醒
+    const url = "home.php?mod=space&do=notice&view=mypost&mobile=2";
+    const html = await HttpClient.get(url);
+    return ForumParser.parseNoticePage(html);
+  }
+
+  // 回复帖子
+  async reply(tid: string, fid: string, formhash: string, message: string): Promise<ReplyResult> {
+    const url = `forum.php?mod=post&action=reply&fid=${fid}&tid=${tid}&extra=&replysubmit=yes&mobile=2`;
+    const body: Record<string, string> = {
+      "formhash": formhash,
+      "message": message,
+      "replysubmit": "yes"
+    };
+    const html = await HttpClient.post(url, body, { "Referer": HttpClient.baseUrl + `forum.php?mod=viewthread&tid=${tid}` });
+    return ForumParser.parseReplyResponse(html);
+  }
 }
+
 
 
 export const forumRepository = new ForumRepository();
