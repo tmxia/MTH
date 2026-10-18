@@ -1,6 +1,8 @@
 import { HttpClient } from '../network/HttpClient';
 import { image } from '@kit.ImageKit';
 import { MtfColors } from './Theme';
+import pasteboard from '@ohos.pasteboard';
+import promptAction from '@ohos.promptAction';
 
 @Component
 export struct NetImage {
@@ -23,6 +25,16 @@ export struct NetImage {
     }
   }
 
+  async copyImageUrl() {
+    try {
+      const pasteData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, this.src);
+      await pasteboard.getSystemPasteboard().setData(pasteData);
+      promptAction.showToast({ message: '图片链接已复制' });
+    } catch (e) {
+      promptAction.showToast({ message: '复制失败' });
+    }
+  }
+
   build() {
     Stack() {
       Image(this.pixelMap)
@@ -37,6 +49,10 @@ export struct NetImage {
             this.showPreview = true;
           }
         })
+        .bindContextMenu(
+          this.ItemMenu(),
+          ResponseType.LongPress
+        )
 
       // 全屏大图预览层
       if (this.showPreview && this.pixelMap) {
@@ -55,6 +71,16 @@ export struct NetImage {
           this.showPreview = false;
         })
       }
+    }
+  }
+
+  @Builder
+  ItemMenu() {
+    Menu() {
+      MenuItem({ content: '复制图片链接' })
+        .onClick(() => {
+          this.copyImageUrl();
+        })
     }
   }
 }
