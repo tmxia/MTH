@@ -438,6 +438,7 @@ export class NewThreadResult {
 export class RichTextNode {
   type: string = ""; // "text" | "image"
   content: string = "";
+  isBold: boolean = false;
 }
 
 export class ActionState {
