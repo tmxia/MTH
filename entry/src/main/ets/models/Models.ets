@@ -64,8 +64,6 @@ export class Post {
   hasHiddenContent: boolean = false;
   sticky: boolean = false;
   imageUrls: Array<string> = [];
-  imageUrls: Array<string> = [];
-  imageUrls: Array<string> = [];
 }
 
 export class ThreadPage {
