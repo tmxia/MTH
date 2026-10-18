@@ -2,6 +2,7 @@ import { cookieManager } from '../network/CookieManager';
 import { forumRepository } from '../repo/ForumRepository';
 import { Thread } from '../models/Models';
 import common from '@ohos.app.ability.common';
+import router from '@ohos.router';
 
 @Entry
 @Component
@@ -60,6 +61,9 @@ struct Index {
             ListItem() {
               this.ThreadCard(item)
             }
+            .onClick(() => {
+              router.pushUrl({ url: 'pages/ThreadDetail', params: { tid: item.tid } });
+            })
           }, (item: Thread) => item.tid)
         }
         .width('100%')

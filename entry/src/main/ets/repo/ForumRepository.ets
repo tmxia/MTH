@@ -1,5 +1,5 @@
 import { HttpClient } from '../network/HttpClient';
-import { ForumGroup, HomeData, ForumPage, Thread } from '../models/Models';
+import { ForumGroup, HomeData, ForumPage, Thread, ThreadPage } from '../models/Models';
 import { ForumParser } from '../parser/ForumParser';
 
 // ==========================================
@@ -87,6 +87,21 @@ export class ForumRepository {
     }
   }
 }
+  // 获取帖子详情页
+  async threadPage(tid: string, page: number, orderType: number = 0, authorId: string | null = null): Promise<ThreadPage> {
+    let orderStr = orderType === 1 ? "&ordertype=1" : "";
+    let authorStr = (authorId && authorId.trim() !== "") ? `&authorid=${authorId}` : "";
+    const url = `forum.php?mod=viewthread&tid=${tid}&page=${page}${orderStr}${authorStr}&mobile=2`;
+    const html = await this.http.get(url);
+    const tp = ForumParser.parseThreadPage(html, page);
+    
+    const blocked = this.currentBlocked();
+    if (blocked.size > 0) {
+      tp.posts = tp.posts.filter((post) => !(post.authorUid && blocked.has(post.authorUid)));
+    }
+    return tp;
+  }
+
 
 // 导出单例
 export const forumRepository = new ForumRepository(HttpClient);

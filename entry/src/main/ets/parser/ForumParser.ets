@@ -1,4 +1,4 @@
-import { ForumGroup, Forum, Thread, HomeData, ForumPage } from '../models/Models';
+import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, PostQuote } from '../models/Models';
 
 // 提取 ID 的正则
 const RE_FID = /forum-(\d+)-/;
@@ -428,4 +428,108 @@ export class ForumParser {
     fp.threads = threads;
     return fp;
   }
+
+  // ==========================================
+  // 5. 解析帖子详情页
+  // ==========================================
+  static parseThreadPage(html: string, page: number): ThreadPage {
+    const tp = new ThreadPage();
+    tp.page = page;
+
+    // 提取标题 (通常包含在 <title> 中)
+    const titleMatch = /<title>([\s\S]*?)<\/title>/i.exec(html);
+    if (titleMatch) {
+      tp.subject = this.stripInvisibleChars(titleMatch[1]).replace("- MT论坛", "").trim();
+    }
+
+    // 提取版块名
+    const forumMatch = /<a[^>]*class="[^"]*kmtit[^"]*"[^>]*>([\s\S]*?)<\/a>/i.exec(html);
+    if (forumMatch) {
+      tp.forumName = this.stripInvisibleChars(forumMatch[1]);
+    }
+
+    // 提取回复数 (位于 div.comiis_pltit h2 span)
+    const replyMatch = /<div[^>]*class="[^"]*comiis_pltit[^"]*"[^>]*>[\s\S]*?<h2[^>]*>[\s\S]*?<span[^>]*>([\s\S]*?)<\/span>/i.exec(html);
+    if (replyMatch) {
+      tp.totalReplies = parseInt(this.stripInvisibleChars(replyMatch[1])) || 0;
+    }
+
+    // 提取点赞数
+    const likeMatch = /<em[^>]*class="[^"]*comiis_recommend_num[^"]*"[^>]*>([\s\S]*?)<\/em>/i.exec(html);
+    if (likeMatch) {
+      const numMatch = /(\d+)/.exec(likeMatch[1]);
+      tp.likeCount = numMatch ? parseInt(numMatch[1]) : 0;
+    }
+
+    // 提取收藏数
+    const favMatch = /<span[^>]*class="[^"]*comiis_favorite_a_num[^"]*"[^>]*>([\s\S]*?)<\/span>/i.exec(html);
+    if (favMatch) {
+      const numMatch = /(\d+)/.exec(favMatch[1]);
+      tp.favoriteCount = numMatch ? parseInt(numMatch[1]) : 0;
+    }
+
+    // 提取 formhash
+    const fhMatch = /name="formhash" value="([^"]+)"/i.exec(html);
+    if (fhMatch) tp.formhash = fhMatch[1];
+
+    // 提取帖子列表
+    const posts: Array<Post> = [];
+    const postBlockRegex = /<div[^>]*id="pid(\d+)"[^>]*class="[^"]*comiis_postli[^"]*"[^>]*>([\s\S]*?)<div[^>]*class="[^"]*comiis_postli_bottom[^"]*"/gi;
+    let pMatch: RegExpExecArray | null;
+    
+    while ((pMatch = postBlockRegex.exec(html)) !== null) {
+      const pid = pMatch[1];
+      const content = pMatch[2];
+      const post = new Post();
+      post.pid = pid;
+
+      // 是否楼主
+      if (content.includes("楼主") || content.includes("顶楼")) {
+        post.isOp = true;
+      }
+
+      // 作者信息
+      const authorMatch = /<a[^>]*class="[^"]*top_user[^"]*"[^>]*href="[^"]*uid=(\d+)[^"]*"[^>]*>([\s\S]*?)<\/a>/i.exec(content);
+      if (authorMatch) {
+        post.authorUid = authorMatch[1];
+        post.authorName = this.stripInvisibleChars(authorMatch[2]);
+      }
+
+      // 时间
+      const timeMatch = /<span[^>]*class="[^"]*kmtime[^"]*"[^>]*>([\s\S]*?)<\/span>/i.exec(content);
+      if (timeMatch) {
+        post.timeText = this.stripInvisibleChars(timeMatch[1]);
+      }
+
+      // 楼层号
+      const floorMatch = /<span[^>]*class="[^"]*f_d[^"]*y[^"]*"[^>]*>([\s\S]*?)<\/span>/i.exec(content);
+      if (floorMatch) {
+        post.floorLabel = this.stripInvisibleChars(floorMatch[1]);
+        const fNum = /(\d+)/.exec(post.floorLabel);
+        if (fNum) post.floor = parseInt(fNum[1]);
+      }
+
+      // 正文 HTML (去除所有 img 标签或者替换为文本，这里简单粗暴提取整个 div)
+      // 注：由于鸿蒙没有 RichText 原生支持，我们暂存 HTML，UI 层做简单剥离显示
+      const htmlMatch = /<div[^>]*class="[^"]*comiis_a[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(content);
+      if (htmlMatch) {
+        // 去除引用块
+        let rawHtml = htmlMatch[1];
+        rawHtml = rawHtml.replace(/<div[^>]*class="[^"]*(?:comiis_quote|quote)[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '');
+        
+        // 将 <br> 和 <p> 替换为换行符，方便纯文本显示
+        rawHtml = rawHtml.replace(/<br\s*\/?>/gi, '\n');
+        rawHtml = rawHtml.replace(/<\/p>/gi, '\n');
+        // 剥离所有其他标签
+        rawHtml = rawHtml.replace(/<[^>]+>/g, '');
+        post.contentHtml = this.stripInvisibleChars(rawHtml);
+      }
+
+      posts.push(post);
+    }
+    
+    tp.posts = posts;
+    return tp;
+  }
 }
+
