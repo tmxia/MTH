@@ -1,4 +1,4 @@
-import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult, UserProfile } from '../models/Models';
+import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult, UserProfile, CheckInStatus, CheckInResult } from '../models/Models';
 
 const RE_FID = /forum-(\d+)-/;
 const RE_TID = /thread-(\d+)-/;
@@ -479,6 +479,42 @@ export class ForumParser {
 
     return profile;
   }
+
+  // ==========================================
+  // 8. 签到解析
+  // ==========================================
+  static parseCheckInStatus(html: string): CheckInStatus {
+    const status = new CheckInStatus();
+    
+    // 提取 formhash (签到一般也需要 formhash)
+    const fhMatch = /name="formhash" value="([^"]+)"/i.exec(html);
+    if (fhMatch) status.formhash = fhMatch[1];
+
+    // 智能判断是否已签到 (Discuz 签到插件常见的文案)
+    if (html.includes("已签到") || html.includes("今日已签到") || html.includes("已经签到")) {
+      status.hasSigned = true;
+    } else {
+      status.hasSigned = false;
+    }
+    
+    return status;
+  }
+
+  static parseCheckInResponse(response: string): CheckInResult {
+    const result = new CheckInResult();
+    
+    // 判断是否成功
+    if (response.includes("签到成功") || response.includes("恭喜") || response.includes("已签到")) {
+      result.success = true;
+      result.message = "签到成功";
+    } else {
+      result.success = false;
+      // 提取错误信息，去除 HTML 标签
+      result.message = stripInvisible(response.replace(/<[^>]+>/g, '')).substring(0, 50);
+    }
+    return result;
+  }
 }
+
 
 

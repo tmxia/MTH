@@ -1,5 +1,5 @@
 import { HttpClient } from '../network/HttpClient';
-import { ForumGroup, HomeData, ForumPage, Thread, ThreadPage, LoginResult, UserProfile } from '../models/Models';
+import { ForumGroup, HomeData, ForumPage, Thread, ThreadPage, LoginResult, UserProfile, CheckInStatus, CheckInResult } from '../models/Models';
 import { ForumParser } from '../parser/ForumParser';
 
 export enum ForumSort {
@@ -146,6 +146,21 @@ export class ForumRepository {
     const html = await HttpClient.get(url);
     return ForumParser.parseUserProfile(html);
   }
+
+  // 获取签到状态
+  async checkInStatus(): Promise<CheckInStatus> {
+    const url = "k_misign-sign.html";
+    const html = await HttpClient.get(url);
+    return ForumParser.parseCheckInStatus(html);
+  }
+
+  // 提交签到
+  async submitCheckIn(formhash: string): Promise<CheckInResult> {
+    const url = `plugin.php?id=k_misign:sign&operation=qiandao&format=text&formhash=${formhash}`;
+    const html = await HttpClient.get(url); // 通常签到请求是 GET
+    return ForumParser.parseCheckInResponse(html);
+  }
 }
+
 
 export const forumRepository = new ForumRepository();

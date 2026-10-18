@@ -201,6 +201,8 @@ struct ForumTab {
 struct ProfileTab {
   @State profile: UserProfile | null = null;
   @State isLoading: boolean = true;
+  @State checkInStatus: CheckInStatus | null = null;
+  @State isCheckingIn: boolean = false;
 
   async aboutToAppear() {
     await this.loadData();
@@ -215,6 +217,9 @@ struct ProfileTab {
     this.isLoading = true;
     try {
       this.profile = await forumRepository.me();
+      if (this.profile.isLoggedIn) {
+        this.checkInStatus = await forumRepository.checkInStatus();
+      }
     } catch (e) {
       console.error('Failed to load profile', e);
     } finally {
@@ -259,6 +264,35 @@ struct ProfileTab {
             Column() { Text(`${this.profile.credits || 0}`).fontSize(16).fontWeight(FontWeight.Bold); Text('积分').fontSize(12).fontColor('#999') }.layoutWeight(1)
             Column() { Text(`${this.profile.gold || 0}`).fontSize(16).fontWeight(FontWeight.Bold); Text('金币').fontSize(12).fontColor('#999') }.layoutWeight(1)
           }.width('100%').padding({ top: 15, bottom: 15 }).backgroundColor('#FFFFFF').borderRadius(12)
+
+
+          // 签到卡片
+          Row() {
+            Column() {
+              Text('每日签到').fontSize(16).fontWeight(FontWeight.Bold).fontColor('#333')
+              Text(this.checkInStatus?.hasSigned ? '今日已签到' : '签到获取积分').fontSize(12).fontColor('#999').margin({ top: 4 })
+            }.alignItems(HorizontalAlign.Start).layoutWeight(1)
+            
+            Button(this.checkInStatus?.hasSigned ? '已签到' : (this.isCheckingIn ? '签到中...' : '立即签到'))
+              .backgroundColor(this.checkInStatus?.hasSigned ? '#CCCCCC' : '#FF5722')
+              .fontColor('#FFFFFF')
+              .enabled(!this.checkInStatus?.hasSigned && !this.isCheckingIn)
+              .onClick(async () => {
+                if (!this.checkInStatus?.formhash) return;
+                this.isCheckingIn = true;
+                try {
+                  const res = await forumRepository.submitCheckIn(this.checkInStatus.formhash);
+                  promptAction.showToast({ message: res.message });
+                  if (res.success) {
+                    await this.loadData(); // 刷新状态
+                  }
+                } catch (e) {
+                  promptAction.showToast({ message: '签到失败' });
+                } finally {
+                  this.isCheckingIn = false;
+                }
+              })
+          }.width('100%').padding(20).backgroundColor('#FFFFFF').borderRadius(12).margin({ bottom: 15 })
 
           // 菜单列表
           Column() {
