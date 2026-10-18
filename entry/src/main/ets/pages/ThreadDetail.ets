@@ -2,6 +2,7 @@ import { forumRepository } from '../repo/ForumRepository';
 import { ThreadPage, Post, RichTextNode } from '../models/Models';
 import { ForumParser } from '../parser/ForumParser';
 import { NetImage } from '../common/NetImage';
+import { MtfColors, CARD_SHADOW } from '../common/Theme';
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 
@@ -97,13 +98,13 @@ struct ThreadDetail {
   build() {
     Column() {
       Row() {
-        Text('< 返回').fontSize(16).fontColor('#333').onClick(() => router.back())
+        Text('< 返回').fontSize(16).fontColor(MtfColors.textMain).onClick(() => router.back())
         Text('帖子详情').fontSize(18).fontWeight(FontWeight.Bold).layoutWeight(1).textAlign(TextAlign.Center)
         Blank().width(40)
-      }.width('100%').height(50).padding({ left: 16, right: 16 }).backgroundColor('#FFFFFF')
+      }.width('100%').height(50).padding({ left: 16, right: 16 }).backgroundColor(MtfColors.bgWhite)
 
       if (this.isLoading && !this.tp) {
-        LoadingProgress().width(50).height(50).color('#4D6BFE').margin({ top: 100 })
+        LoadingProgress().width(50).height(50).color(MtfColors.primary).margin({ top: 100 })
       } else if (this.errorMsg !== '') {
         Text(this.errorMsg).fontSize(16).fontColor(Color.Red).margin({ top: 100 })
       } else if (this.tp) {
@@ -113,12 +114,12 @@ struct ThreadDetail {
               Column({ space: 8 }) {
                 Text(this.tp.subject || '无标题').fontSize(20).fontWeight(FontWeight.Bold).fontColor('#111')
                 Row() {
-                  Text(this.tp.forumName || '未知版块').fontSize(12).fontColor('#4D6BFE')
+                  Text(this.tp.forumName || '未知版块').fontSize(12).fontColor(MtfColors.primary)
                   Blank()
-                  Text(`共 ${this.tp.totalReplies || 0} 回复`).fontSize(12).fontColor('#999')
+                  Text(`共 ${this.tp.totalReplies || 0} 回复`).fontSize(12).fontColor(MtfColors.textLight)
                 }.width('100%')
               }
-              .width('100%').padding(16).backgroundColor('#FFFFFF').alignItems(HorizontalAlign.Start)
+              .width('100%').padding(16).backgroundColor(MtfColors.bgWhite).alignItems(HorizontalAlign.Start)
             }
 
             ForEach(this.tp.posts, (post: Post) => {
@@ -127,7 +128,7 @@ struct ThreadDetail {
               }
             }, (post: Post) => post.pid)
           }
-          .width('100%').layoutWeight(1).backgroundColor('#F5F5F5')
+          .width('100%').layoutWeight(1).backgroundColor(MtfColors.bgLight)
 
           // 底部操作栏 + 回复框
           Column() {
@@ -141,11 +142,11 @@ struct ThreadDetail {
               TextInput({ placeholder: '写点什么...', text: this.replyText })
                 .layoutWeight(1).height(40).backgroundColor('#F0F0F0').borderRadius(20)
                 .onChange((val: string) => this.replyText = val)
-              Button('发送').height(40).backgroundColor('#4D6BFE').fontColor('#FFFFFF')
+              Button('发送').height(40).backgroundColor(MtfColors.primary).fontColor(MtfColors.bgWhite)
                 .enabled(!this.isSending && this.replyText.trim().length > 0)
                 .onClick(() => this.submitReply())
             }.width('100%').padding(10)
-          }.backgroundColor('#FFFFFF').border({ width: { top: 0.5 }, color: '#EEEEEE' })
+          }.backgroundColor(MtfColors.bgWhite).border({ width: { top: 0.5 }, color: '#EEEEEE' })
         }.layoutWeight(1)
       }
     }.width('100%').height('100%')
@@ -164,23 +165,23 @@ struct ThreadDetail {
           })
         Column() {
           Text(post.authorName || '匿名').fontSize(14).fontWeight(FontWeight.Medium)
-          Text(post.timeText || '刚刚').fontSize(11).fontColor('#999')
+          Text(post.timeText || '刚刚').fontSize(11).fontColor(MtfColors.textLight)
         }.alignItems(HorizontalAlign.Start)
         Blank()
         if (post.isOp) {
-          Text('楼主').fontSize(10).fontColor('#FFFFFF').backgroundColor('#4D6BFE').padding({ left: 4, right: 4, top: 1, bottom: 1 }).borderRadius(4)
+          Text('楼主').fontSize(10).fontColor(MtfColors.bgWhite).backgroundColor(MtfColors.primary).padding({ left: 4, right: 4, top: 1, bottom: 1 }).borderRadius(4)
         }
-        Text(post.floorLabel || '').fontSize(12).fontColor('#999')
+        Text(post.floorLabel || '').fontSize(12).fontColor(MtfColors.textLight)
       }.width('100%')
 
       ForEach(this.parsedRichText.get(post.pid) || [], (node: RichTextNode) => {
         if (node.type === 'text') {
-          Text(node.content).fontSize(15).fontColor('#333').fontWeight(node.isBold ? FontWeight.Bold : FontWeight.Normal).lineHeight(24).copyOption(CopyOptions.LocalDevice).width('100%')
+          Text(node.content).fontSize(15).fontColor(MtfColors.textMain).fontWeight(node.isBold ? FontWeight.Bold : FontWeight.Normal).lineHeight(24).copyOption(CopyOptions.LocalDevice).width('100%')
         } else if (node.type === 'image') {
           NetImage({ src: node.content, imgWidth: '100%', imgRadius: 6 }).margin({ top: 5, bottom: 5 })
         }
       }, (node: RichTextNode, index: number) => `${post.pid}-${index}`)
     }
-    .width('100%').padding(16).backgroundColor('#FFFFFF').margin({ top: 8 })
+    .width('100%').padding(16).backgroundColor(MtfColors.bgWhite).margin({ top: 8 })
   }
 }
