@@ -11,6 +11,9 @@ import promptAction from '@ohos.promptAction';
 @Component
 struct Index {
   @State currentIndex: number = 0;
+  aboutToAppear() {
+    AppStorage.setOrCreate('isDark', false);
+  }
 
   build() {
     Tabs({ barPosition: BarPosition.End }) {
@@ -199,6 +202,7 @@ struct ForumTab {
 
 @Component
 struct ProfileTab {
+  @StorageLink('isDark') isDark: boolean = false;
   @State profile: UserProfile | null = null;
   @State isLoading: boolean = true;
   @State checkInStatus: CheckInStatus | null = null;
