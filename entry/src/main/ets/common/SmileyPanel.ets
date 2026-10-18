@@ -1,9 +1,15 @@
 import { MtfColors } from './Theme';
 
+// 明确定义表情项接口
+export interface SmileyItem {
+  code: string;
+  emoji: string;
+}
+
 @Component
 export struct SmileyPanel {
-  // 常用 Discuz 表情映射表
-  private smiles: Array<{code: string, emoji: string}> = [
+  // 声明明确类型的数组
+  private smiles: Array<SmileyItem> = [
     { code: '[微笑]', emoji: '😊' }, { code: '[撇嘴]', emoji: '😒' },
     { code: '[色]', emoji: '😍' }, { code: '[发呆]', emoji: '😳' },
     { code: '[得意]', emoji: '😎' }, { code: '[流泪]', emoji: '😭' },
@@ -33,18 +39,19 @@ export struct SmileyPanel {
     { code: '[吓]', emoji: '😱' }, { code: '[可怜]', emoji: '🥺' }
   ];
 
-  @Prop onSelect: (code: string) => void = () => {};
+  // 去掉 @Prop，改用普通属性，允许外部传入函数
+  onSelect: (code: string) => void = () => {};
 
   build() {
     Grid() {
-      ForEach(this.smiles, (item) => {
+      ForEach(this.smiles, (item: SmileyItem) => {
         GridItem() {
           Text(item.emoji).fontSize(24).textAlign(TextAlign.Center).width('100%').height('100%')
             .onClick(() => {
               this.onSelect(item.code);
             })
         }
-      }, (item) => item.code)
+      }, (item: SmileyItem) => item.code)
     }
     .columnsTemplate('1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr')
     .rowsGap(10)
