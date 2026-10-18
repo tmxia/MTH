@@ -1,6 +1,6 @@
 import { forumRepository } from '../repo/ForumRepository';
 import { NewThreadPageData, ImageUpload } from '../models/Models';
-import { DraftStore } from '../common/DraftStore';
+import { DraftStore, DraftData } from '../common/DraftStore';
 import { MtfColors } from '../common/Theme';
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
@@ -29,7 +29,7 @@ struct PostEdit {
       await this.loadInitData();
       
       // 恢复草稿
-      const draft = await DraftStore.getDraft(this.fid);
+      const draft: DraftData | null = await DraftStore.getDraft(this.fid);
       if (draft) {
         this.title = draft.title;
         this.content = draft.content;

@@ -12,8 +12,16 @@ export class MtfColors {
   static readonly warning: string = '#FFB800'; // 收藏/警告
 }
 
+// 明确定义阴影配置接口，解决 arkts-no-untyped-obj-literals
+export interface CardShadowConfig {
+  radius: number;
+  color: string;
+  offsetX: number;
+  offsetY: number;
+}
+
 // 全局阴影配置
-export const CARD_SHADOW = {
+export const CARD_SHADOW: CardShadowConfig = {
   radius: 6,
   color: '#08000000',
   offsetX: 0,
