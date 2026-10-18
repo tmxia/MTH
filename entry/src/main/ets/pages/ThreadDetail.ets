@@ -79,6 +79,21 @@ struct ThreadDetail {
     }
   }
 
+  async doFavorite() {
+    if (!this.tp || !this.tp.formhash) return;
+    try {
+      const ok = await forumRepository.toggleFavorite(this.tp.tid, this.tp.formhash, !this.tp.isFavorited);
+      if (ok) {
+        this.tp.isFavorited = !this.tp.isFavorited;
+        promptAction.showToast({ message: this.tp.isFavorited ? '收藏成功' : '已取消收藏' });
+      } else {
+        promptAction.showToast({ message: '操作失败' });
+      }
+    } catch (e) {
+      promptAction.showToast({ message: '网络异常' });
+    }
+  }
+
   build() {
     Column() {
       Row() {
@@ -119,7 +134,7 @@ struct ThreadDetail {
             Row() {
               Text(this.isLiked ? '❤️ 已赞' : '🤍 点赞').fontSize(14).fontColor(this.isLiked ? '#FF3B30' : '#666').onClick(() => this.doLike())
               Blank()
-              Text('收藏').fontSize(14).fontColor('#666')
+              Text(this.tp?.isFavorited ? '⭐ 已收藏' : '☆ 收藏').fontSize(14).fontColor(this.tp?.isFavorited ? '#FFB800' : '#666').onClick(() => this.doFavorite())
             }.width('100%').padding({ left: 15, right: 15, top: 5, bottom: 5 })
 
             Row({ space: 10 }) {

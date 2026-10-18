@@ -24,18 +24,23 @@ struct Index {
 @Component
 struct HomeTab {
   @State threads: Array<Thread> = [];
-  @State isLoading: boolean = true;
+  @State isLoading: boolean = false;
+  @State isLoadingMore: boolean = false;
   @State errorMsg: string = '';
+  @State page: number = 1;
+  @State hasNext: boolean = true;
 
   async aboutToAppear() {
     let context = this.getUIContext().getHostContext() as common.UIAbilityContext;
     await cookieManager.init(context);
-    await this.loadData();
+    await this.refreshData();
   }
 
-  async loadData() {
+  async refreshData() {
+    if (this.isLoading) return;
     this.isLoading = true;
-    this.errorMsg = '';
+    this.page = 1;
+    this.hasNext = true;
     try {
       let homeData = await forumRepository.home();
       this.threads = homeData.hotThreads;
@@ -43,6 +48,26 @@ struct HomeTab {
       this.errorMsg = (error as Error).message || '加载失败';
     } finally {
       this.isLoading = false;
+    }
+  }
+
+  async loadMore() {
+    if (!this.hasNext || this.isLoadingMore) return;
+    this.isLoadingMore = true;
+    this.page++;
+    try {
+      // 借用 guideFeed 拉取下一页热帖
+      let res = await forumRepository.guideFeed('hot', this.page);
+      if (res.threads.length > 0) {
+        this.threads = this.threads.concat(res.threads);
+        this.hasNext = res.hasNext;
+      } else {
+        this.hasNext = false;
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      this.isLoadingMore = false;
     }
   }
 
@@ -68,10 +93,30 @@ struct HomeTab {
               }
               .onClick(() => router.pushUrl({ url: 'pages/ThreadDetail', params: { tid: item.tid } }))
             }, (item: Thread) => item.tid)
-          }.width('100%').layoutWeight(1).padding(10).backgroundColor('#F5F5F5')
+            
+            // 底部加载更多状态
+            if (this.isLoadingMore) {
+              ListItem() {
+                Row() { LoadingProgress().width(24).height(24); Text('加载中...').fontSize(12).fontColor('#999').margin({left: 10}) }
+                .width('100%').justifyContent(FlexAlign.Center).padding(10)
+              }
+            } else if (!this.hasNext && this.threads.length > 0) {
+              ListItem() {
+                Text('没有更多了').fontSize(12).fontColor('#999').width('100%').textAlign(TextAlign.Center).padding(15)
+              }
+            }
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .padding(10)
+          .backgroundColor('#F5F5F5')
+          .onReachEnd(() => {
+            this.loadMore();
+          })
         }
-        .onRefreshing(() => this.loadData())
-        .width('100%').layoutWeight(1)
+        .onRefreshing(() => this.refreshData())
+        .width('100%')
+        .layoutWeight(1)
       }
     }.width('100%').height('100%')
   }
