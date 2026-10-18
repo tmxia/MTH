@@ -21,44 +21,35 @@ jobs:
       - name: Setup OpenHarmony SDK
         uses: ErBWs/setup-ohos@v2
 
-      # 1. 依然保留 material 目录并生成签名文件
+      # 1. 建立官方标准的 signature 目录并放入证书
       - name: Restore Signing Files
         run: |
-          mkdir -p material
-          echo "${{ secrets.HAP_P12_BASE64 }}" | base64 -d > material/signature.p12
-          echo "${{ secrets.HAP_P7B_BASE64 }}" | base64 -d > material/signature.p7b
-          keytool -exportcert -alias "${{ secrets.HAP_KEY_ALIAS }}" -keystore material/signature.p12 -storepass "${{ secrets.HAP_KEY_PASSWORD }}" -rfc -file material/signature.cer
-          ls -la material/
+          mkdir -p signature
+          echo "${{ secrets.HAP_P12_BASE64 }}" | base64 -d > signature/signature.p12
+          echo "${{ secrets.HAP_P7B_BASE64 }}" | base64 -d > signature/signature.p7b
+          keytool -exportcert -alias "${{ secrets.HAP_KEY_ALIAS }}" -keystore signature/signature.p12 -storepass "${{ secrets.HAP_KEY_PASSWORD }}" -rfc -file signature/signature.cer
+          ls -la signature/
 
-      # 2. 核心修复：使用绝对路径注入 build-profile.json5
-      - name: Configure Signing with Absolute Path
+      # 2. 注入官方标准的相对路径配置
+      - name: Configure Signing in build-profile.json5
         run: |
           python3 -c "
-          import json, os
-          
-          # 获取当前绝对路径
-          base_dir = os.getcwd()
-          p12_abs = os.path.join(base_dir, 'material', 'signature.p12')
-          p7b_abs = os.path.join(base_dir, 'material', 'signature.p7b')
-          cer_abs = os.path.join(base_dir, 'material', 'signature.cer')
-          
+          import json
           with open('build-profile.json5', 'r') as f: data = json.load(f)
           data['app']['signingConfigs'] = [{
               'name': 'default',
               'type': 'HarmonyOS',
               'material': {
-                  'certpath': cer_abs,
+                  'certpath': 'signature/signature.cer',
                   'storePassword': '${{ secrets.HAP_KEY_PASSWORD }}',
                   'keyAlias': '${{ secrets.HAP_KEY_ALIAS }}',
                   'keyPassword': '${{ secrets.HAP_KEY_PASSWORD }}',
-                  'profile': p7b_abs,
+                  'profile': 'signature/signature.p7b',
                   'signAlg': 'SHA256withECDSA',
-                  'storeFile': p12_abs
+                  'storeFile': 'signature/signature.p12'
               }
           }]
           with open('build-profile.json5', 'w') as f: json.dump(data, f, indent=2)
-          print('Injected absolute paths successfully:')
-          print(json.dumps(data['app']['signingConfigs'][0]['material'], indent=2))
           "
 
       # 3. 编译打包
