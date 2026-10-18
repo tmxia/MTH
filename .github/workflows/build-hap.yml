@@ -21,7 +21,7 @@ jobs:
       - name: Setup OpenHarmony SDK
         uses: ErBWs/setup-ohos@v2
 
-      # 1. 创建 material 目录并将文件全部放入其中，并使用 -rfc 生成 PEM 证书
+      # 1. 依然保留 material 目录并生成签名文件
       - name: Restore Signing Files
         run: |
           mkdir -p material
@@ -30,26 +30,35 @@ jobs:
           keytool -exportcert -alias "${{ secrets.HAP_KEY_ALIAS }}" -keystore material/signature.p12 -storepass "${{ secrets.HAP_KEY_PASSWORD }}" -rfc -file material/signature.cer
           ls -la material/
 
-      # 2. 动态注入签名配置（路径写纯文件名，让 hvigor 自己拼 material/ 前缀）
-      - name: Configure Signing in build-profile.json5
+      # 2. 核心修复：使用绝对路径注入 build-profile.json5
+      - name: Configure Signing with Absolute Path
         run: |
           python3 -c "
-          import json
+          import json, os
+          
+          # 获取当前绝对路径
+          base_dir = os.getcwd()
+          p12_abs = os.path.join(base_dir, 'material', 'signature.p12')
+          p7b_abs = os.path.join(base_dir, 'material', 'signature.p7b')
+          cer_abs = os.path.join(base_dir, 'material', 'signature.cer')
+          
           with open('build-profile.json5', 'r') as f: data = json.load(f)
           data['app']['signingConfigs'] = [{
               'name': 'default',
               'type': 'HarmonyOS',
               'material': {
-                  'certpath': 'signature.cer',
+                  'certpath': cer_abs,
                   'storePassword': '${{ secrets.HAP_KEY_PASSWORD }}',
                   'keyAlias': '${{ secrets.HAP_KEY_ALIAS }}',
                   'keyPassword': '${{ secrets.HAP_KEY_PASSWORD }}',
-                  'profile': 'signature.p7b',
+                  'profile': p7b_abs,
                   'signAlg': 'SHA256withECDSA',
-                  'storeFile': 'signature.p12'
+                  'storeFile': p12_abs
               }
           }]
           with open('build-profile.json5', 'w') as f: json.dump(data, f, indent=2)
+          print('Injected absolute paths successfully:')
+          print(json.dumps(data['app']['signingConfigs'][0]['material'], indent=2))
           "
 
       # 3. 编译打包
