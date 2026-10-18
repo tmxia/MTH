@@ -1,5 +1,9 @@
 import { HttpClient } from '../network/HttpClient';
-import { ForumGroup, HomeData, ForumPage, Thread, ThreadPage, LoginResult, UserProfile, CheckInStatus, CheckInResult, NoticePage, ReplyResult } from '../models/Models';
+import { 
+  ForumGroup, HomeData, ForumPage, Thread, ThreadPage, 
+  LoginResult, UserProfile, CheckInStatus, CheckInResult, 
+  NoticePage, ReplyResult 
+} from '../models/Models';
 import { ForumParser } from '../parser/ForumParser';
 
 export enum ForumSort {
@@ -104,6 +108,7 @@ export class ForumRepository {
     return tp;
   }
 
+  // 采用字符串拼接 body，彻底避开对象字面量检查
   async login(username: string, password: string, questionId: number = 0, answer: string = ""): Promise<LoginResult> {
     const loginUrl = "member.php?mod=logging&action=login&mobile=2";
     const loginPageHtml = await HttpClient.get(loginUrl);
@@ -120,24 +125,20 @@ export class ForumRepository {
 
     const submitUrl = `member.php?mod=logging&action=login&loginsubmit=yes&loginhash=${loginhash}`;
     
-    // 严格声明 Record 类型
-    const body: Record<string, string> = {
-      "formhash": formhash,
-      "referer": HttpClient.baseUrl,
-      "fastloginfield": "username",
-      "cookietime": "31104000",
-      "username": username,
-      "password": password,
-      "questionid": questionId.toString(),
-      "answer": answer,
-      "submit": "true"
-    };
+    const bodyStr = "formhash=" + encodeURIComponent(formhash) +
+                    "&referer=" + encodeURIComponent(HttpClient.baseUrl) +
+                    "&fastloginfield=username&cookietime=31104000" +
+                    "&username=" + encodeURIComponent(username) +
+                    "&password=" + encodeURIComponent(password) +
+                    "&questionid=" + questionId +
+                    "&answer=" + encodeURIComponent(answer) +
+                    "&submit=true";
 
     const headers: Record<string, string> = {
       "Referer": HttpClient.baseUrl + loginUrl
     };
 
-    const resultHtml = await HttpClient.post(submitUrl, body, headers);
+    const resultHtml = await HttpClient.post(submitUrl, bodyStr, headers);
     return ForumParser.parseLoginResult(resultHtml);
   }
 
@@ -147,41 +148,36 @@ export class ForumRepository {
     return ForumParser.parseUserProfile(html);
   }
 
-  // 获取签到状态
   async checkInStatus(): Promise<CheckInStatus> {
     const url = "k_misign-sign.html";
     const html = await HttpClient.get(url);
     return ForumParser.parseCheckInStatus(html);
   }
 
-  // 提交签到
   async submitCheckIn(formhash: string): Promise<CheckInResult> {
     const url = `plugin.php?id=k_misign:sign&operation=qiandao&format=text&formhash=${formhash}`;
-    const html = await HttpClient.get(url); // 通常签到请求是 GET
+    const html = await HttpClient.get(url);
     return ForumParser.parseCheckInResponse(html);
   }
 
-  // 获取消息通知（简化版：拉取我的帖子提醒）
   async notices(): Promise<NoticePage> {
-    // 默认拉取系统消息和帖子提醒
     const url = "home.php?mod=space&do=notice&view=mypost&mobile=2";
     const html = await HttpClient.get(url);
     return ForumParser.parseNoticePage(html);
   }
 
-  // 回复帖子
+  // 同样用字符串拼接表单
   async reply(tid: string, fid: string, formhash: string, message: string): Promise<ReplyResult> {
     const url = `forum.php?mod=post&action=reply&fid=${fid}&tid=${tid}&extra=&replysubmit=yes&mobile=2`;
-    const body: Record<string, string> = {
-      "formhash": formhash,
-      "message": message,
-      "replysubmit": "yes"
+    const bodyStr = "formhash=" + encodeURIComponent(formhash) +
+                    "&message=" + encodeURIComponent(message) +
+                    "&replysubmit=yes";
+    const headers: Record<string, string> = {
+      "Referer": HttpClient.baseUrl + `forum.php?mod=viewthread&tid=${tid}`
     };
-    const html = await HttpClient.post(url, body, { "Referer": HttpClient.baseUrl + `forum.php?mod=viewthread&tid=${tid}` });
+    const html = await HttpClient.post(url, bodyStr, headers);
     return ForumParser.parseReplyResponse(html);
   }
 }
-
-
 
 export const forumRepository = new ForumRepository();

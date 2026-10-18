@@ -5,7 +5,7 @@ const RE_TID = /thread-(\d+)-/;
 const RE_CDATA = /<!\[CDATA\[([\s\S]*?)\]\]>/;
 
 // 将工具函数移到外部，彻底避免 this 丢失问题
-function stripInvisible(text: string): string {
+function this.stripInvisible(text: string): string {
   return text.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
 }
 
@@ -77,6 +77,11 @@ function collectThreadImages(li: string): Array<string> {
 }
 
 export class ForumParser {
+
+  static stripInvisible(text: string): string {
+    return text.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+  }
+
   static parseForumList(html: string): Array<ForumGroup> {
     const groups: Array<ForumGroup> = [];
     const todayByFid: Map<string, number> = new Map();
@@ -187,7 +192,7 @@ export class ForumParser {
       const tidMatch = RE_TID.exec(tMatch[1]);
       if (!tidMatch) continue;
       const tid = tidMatch[1];
-      let subject = stripInvisible(tMatch[2]).replace(/^\d+\s*/, '');
+      let subject = ForumParser.stripInvisible(tMatch[2]).replace(/^\d+\s*/, '');
       if (subject.length < 4) continue;
       if (!seenTids.has(tid)) {
         seenTids.add(tid);
@@ -215,7 +220,7 @@ export class ForumParser {
     fp.hasNext = html.includes("下一页") || html.includes("class=\"nxt\"");
     
     const headerMatch = /<div[^>]*class="[^"]*comiis_view_header1[^"]*"[^>]*>[\s\S]*?<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(html);
-    fp.forumName = headerMatch ? stripInvisible(headerMatch[1]) : null;
+    fp.forumName = headerMatch ? this.stripInvisible(headerMatch[1]) : null;
 
     const announcements: Array<Thread> = [];
     const seenAnn: Set<string> = new Set();
@@ -226,7 +231,7 @@ export class ForumParser {
       const aTagMatch = /<a[^>]*href="[^"]*thread-([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(aMatch[1]);
       if (aTagMatch) {
         const tid = aTagMatch[1].replace(/\D/g, '');
-        let subject = stripInvisible(aTagMatch[2]).replace(/^置顶/, '').trim();
+        let subject = ForumParser.stripInvisible(aTagMatch[2]).replace(/^置顶/, '').trim();
         if (!seenAnn.has(tid)) {
           seenAnn.add(tid);
           const t = new Thread();
@@ -264,7 +269,7 @@ export class ForumParser {
       const authorAMatch = /<a[^>]*class="[^"]*top_user[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/i.exec(liContent);
       let authorName: string | null = null, authorUid: string | null = null;
       if (authorAMatch) {
-        authorName = stripInvisible(authorAMatch[2]);
+        authorName = ForumParser.stripInvisible(authorAMatch[2]);
         const uidMatch = /uid=(\d+)/.exec(authorAMatch[1]);
         if (uidMatch) authorUid = uidMatch[1];
       }
@@ -276,22 +281,22 @@ export class ForumParser {
       let excerpt: string | null = null;
       if (isTitleA) {
         const exMatch = /<div[^>]*class="[^"]*list_body[^"]*"[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i.exec(liContent);
-        if (exMatch) excerpt = stripInvisible(exMatch[1]);
+        if (exMatch) excerpt = ForumParser.stripInvisible(exMatch[1]);
       }
 
       let forumName: string | null = null;
       const fNameMatch = /<div[^>]*class="[^"]*comiis_xznalist_bk[^"]*"[^>]*>[\s\S]*?<a[^>]*href="[^"]*forum-[^"]*"[^>]*>([\s\S]*?)<\/a>/i.exec(liContent);
-      if (fNameMatch) forumName = stripInvisible(fNameMatch[1]);
+      if (fNameMatch) forumName = ForumParser.stripInvisible(fNameMatch[1]);
 
       const stats = readCardStats(liContent);
       const thread = new Thread();
       thread.tid = tid;
-      thread.subject = stripInvisible(subject);
+      thread.subject = ForumParser.stripInvisible(subject);
       thread.authorName = authorName;
       thread.authorUid = authorUid;
       thread.avatarUrl = avatarMatch ? avatarMatch[1] : null;
-      thread.level = levelMatch ? stripInvisible(levelMatch[1]) : null;
-      thread.timeText = timeMatch ? stripInvisible(timeMatch[1]) : null;
+      thread.level = levelMatch ? this.stripInvisible(levelMatch[1]) : null;
+      thread.timeText = timeMatch ? this.stripInvisible(timeMatch[1]) : null;
       thread.replyCount = stats[0];
       thread.viewCount = stats[1];
       thread.likeCount = stats[2];
@@ -309,13 +314,13 @@ export class ForumParser {
     tp.page = page;
 
     const titleMatch = /<title>([\s\S]*?)<\/title>/i.exec(html);
-    if (titleMatch) tp.subject = stripInvisible(titleMatch[1]).replace("- MT论坛", "").trim();
+    if (titleMatch) tp.subject = ForumParser.stripInvisible(titleMatch[1]).replace("- MT论坛", "").trim();
 
     const forumMatch = /<a[^>]*class="[^"]*kmtit[^"]*"[^>]*>([\s\S]*?)<\/a>/i.exec(html);
-    if (forumMatch) tp.forumName = stripInvisible(forumMatch[1]);
+    if (forumMatch) tp.forumName = ForumParser.stripInvisible(forumMatch[1]);
 
     const replyMatch = /<div[^>]*class="[^"]*comiis_pltit[^"]*"[^>]*>[\s\S]*?<h2[^>]*>[\s\S]*?<span[^>]*>([\s\S]*?)<\/span>/i.exec(html);
-    if (replyMatch) tp.totalReplies = parseInt(stripInvisible(replyMatch[1])) || 0;
+    if (replyMatch) tp.totalReplies = parseInt(this.stripInvisible(replyMatch[1])) || 0;
 
     const likeMatch = /<em[^>]*class="[^"]*comiis_recommend_num[^"]*"[^>]*>([\s\S]*?)<\/em>/i.exec(html);
     if (likeMatch) {
@@ -348,15 +353,15 @@ export class ForumParser {
       const authorMatch = /<a[^>]*class="[^"]*top_user[^"]*"[^>]*href="[^"]*uid=(\d+)[^"]*"[^>]*>([\s\S]*?)<\/a>/i.exec(content);
       if (authorMatch) {
         post.authorUid = authorMatch[1];
-        post.authorName = stripInvisible(authorMatch[2]);
+        post.authorName = ForumParser.stripInvisible(authorMatch[2]);
       }
 
       const timeMatch = /<span[^>]*class="[^"]*kmtime[^"]*"[^>]*>([\s\S]*?)<\/span>/i.exec(content);
-      if (timeMatch) post.timeText = stripInvisible(timeMatch[1]);
+      if (timeMatch) post.timeText = ForumParser.stripInvisible(timeMatch[1]);
 
       const floorMatch = /<span[^>]*class="[^"]*f_d[^"]*y[^"]*"[^>]*>([\s\S]*?)<\/span>/i.exec(content);
       if (floorMatch) {
-        post.floorLabel = stripInvisible(floorMatch[1]);
+        post.floorLabel = ForumParser.stripInvisible(floorMatch[1]);
         const fNum = /(\d+)/.exec(post.floorLabel);
         if (fNum) post.floor = parseInt(fNum[1]);
       }
@@ -366,7 +371,7 @@ export class ForumParser {
         let rawHtml = htmlMatch[1];
         rawHtml = rawHtml.replace(/<div[^>]*class="[^"]*(?:comiis_quote|quote)[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '');
         rawHtml = rawHtml.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<[^>]+>/g, '');
-        post.contentHtml = stripInvisible(rawHtml);
+        post.contentHtml = ForumParser.stripInvisible(rawHtml);
       }
       posts.push(post);
     }
@@ -409,11 +414,11 @@ export class ForumParser {
     let errMsg = "登录失败";
     const dtMatch = /id=["']messagetext["'][^>]*>([\s\S]*?)<\/dt>/i.exec(html);
     if (dtMatch) {
-      errMsg = stripInvisible(dtMatch[1].replace(/<[^>]+>/g, ''));
+      errMsg = ForumParser.stripInvisible(dtMatch[1].replace(/<[^>]+>/g, ''));
     } else {
       const pMatch = /<p>([\s\S]*?)(?:<script|<\/p>)/i.exec(html);
       if (pMatch && !pMatch[1].includes("<img") && pMatch[1].trim().length > 0) {
-        errMsg = stripInvisible(pMatch[1].replace(/<[^>]+>/g, ''));
+        errMsg = ForumParser.stripInvisible(pMatch[1].replace(/<[^>]+>/g, ''));
       }
     }
 
@@ -443,17 +448,17 @@ export class ForumParser {
     // 用户名 (尝试匹配 .comiis_space_tx h2)
     const nameMatch = /<div[^>]*class="[^"]*comiis_space_tx[^"]*"[^>]*>[\s\S]*?<h2[^>]*>([\s\S]*?)<\/h2>/i.exec(html);
     if (nameMatch) {
-      profile.name = stripInvisible(nameMatch[1].replace(/<[^>]+>/g, ''));
+      profile.name = ForumParser.stripInvisible(nameMatch[1].replace(/<[^>]+>/g, ''));
     } else {
       // 备用：a.sidenv_user
       const sideNameMatch = /<a[^>]*class="[^"]*sidenv_user[^"]*"[^>]*>([\s\S]*?)<\/a>/i.exec(html);
-      if (sideNameMatch) profile.name = stripInvisible(sideNameMatch[1]);
+      if (sideNameMatch) profile.name = ForumParser.stripInvisible(sideNameMatch[1]);
     }
 
     // 用户组/等级
     const levelMatch = /<span[^>]*class="[^"]*(?:kmlevs|user_lev)[^"]*"[^>]*>([\s\S]*?)<\/span>/i.exec(html);
     if (levelMatch) {
-      profile.level = stripInvisible(levelMatch[1]);
+      profile.level = ForumParser.stripInvisible(levelMatch[1]);
       profile.groupName = profile.level;
     }
 
@@ -513,7 +518,7 @@ export class ForumParser {
     } else {
       result.success = false;
       // 提取错误信息，去除 HTML 标签
-      result.message = stripInvisible(response.replace(/<[^>]+>/g, '')).substring(0, 50);
+      result.message = ForumParser.stripInvisible(response.replace(/<[^>]+>/g, '')).substring(0, 50);
     }
     return result;
   }
@@ -543,8 +548,8 @@ export class ForumParser {
       if (textMatch) {
         const notice = new Notice();
         notice.id = Math.random().toString(36).substr(2, 9); // 随机生成ID
-        notice.text = stripInvisible(textMatch[1].replace(/<[^>]+>/g, ''));
-        notice.timeText = timeMatch ? stripInvisible(timeMatch[1]) : null;
+        notice.text = ForumParser.stripInvisible(textMatch[1].replace(/<[^>]+>/g, ''));
+        notice.timeText = timeMatch ? this.stripInvisible(timeMatch[1]) : null;
         
         // 尝试提取对应的帖子链接
         const tidMatch = /thread-(\d+)/.exec(li);
@@ -572,7 +577,7 @@ export class ForumParser {
       // 提取错误信息
       const errMatch = /id=["']messagetext["'][^>]*>([\s\S]*?)<\/dt>/i.exec(html);
       if (errMatch) {
-        result.message = stripInvisible(errMatch[1].replace(/<[^>]+>/g, ''));
+        result.message = ForumParser.stripInvisible(errMatch[1].replace(/<[^>]+>/g, ''));
       } else {
         result.message = "回复失败，可能包含敏感词或被限制";
       }
