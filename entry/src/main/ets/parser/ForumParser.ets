@@ -1,4 +1,4 @@
-import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult, UserProfile, CheckInStatus, CheckInResult, Notice, NoticePage, ReplyResult, SearchResult, MyThreadPage, FavoritePage, FavoriteItem, FriendUserPage, FriendUserItem } from '../models/Models';
+import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult, UserProfile, CheckInStatus, CheckInResult, Notice, NoticePage, ReplyResult, SearchResult, MyThreadPage, FavoritePage, FavoriteItem, FriendUserPage, FriendUserItem, NewThreadPageData, NewThreadResult, ImageUpload } from '../models/Models';
 
 const RE_FID = /forum-(\d+)-/;
 const RE_TID = /thread-(\d+)-/;
@@ -600,4 +600,46 @@ export class ForumParser {
     }
     return images;
   }
+
+  static parseNewThreadInit(html: string): NewThreadPageData {
+    const data = new NewThreadPageData();
+    const fhMatch = /name="formhash" value="([^"]+)"/i.exec(html);
+    if (fhMatch) data.formhash = fhMatch[1];
+    
+    const ptMatch = /name="posttime" value="([^"]+)"/i.exec(html);
+    if (ptMatch) data.posttime = ptMatch[1];
+
+    const creds = ForumParser.parseUploadCredentials(html);
+    if (creds) {
+      data.uploadUid = creds[0];
+      data.uploadHash = creds[1];
+    }
+    return data;
+  }
+
+  static parseUploadCredentials(html: string): [string, string] | null {
+    // 提取 uid 和 hash
+    const uidMatch = /upload_uid\s*=\s*'([^']+)'/.exec(html) || /discuz_uid\s*=\s*'(\d+)'/.exec(html);
+    const hashMatch = /upload_hash\s*=\s*'([^']+)'/.exec(html) || /hash\s*=\s*'([^']+)'/.exec(html);
+    if (uidMatch && hashMatch) {
+      return [uidMatch[1], hashMatch[1]];
+    }
+    return null;
+  }
+
+  static parseNewThreadResult(html: string): NewThreadResult {
+    const result = new NewThreadResult();
+    const tidMatch = /thread-(\d+)/.exec(html);
+    if (tidMatch) {
+      result.success = true;
+      result.tid = tidMatch[1];
+      result.message = "发布成功";
+    } else {
+      result.success = false;
+      const errMatch = /id=["']messagetext["'][^>]*>([\s\S]*?)<\/dt>/i.exec(html);
+      result.message = errMatch ? ForumParser.stripInvisible(errMatch[1].replace(/<[^>]+>/g, '')) : "发布失败";
+    }
+    return result;
+  }
 }
+

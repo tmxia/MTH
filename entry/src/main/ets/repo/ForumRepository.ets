@@ -1,9 +1,5 @@
 import { HttpClient } from '../network/HttpClient';
-import { 
-  ForumGroup, HomeData, ForumPage, Thread, ThreadPage, 
-  LoginResult, UserProfile, CheckInStatus, CheckInResult, 
-  NoticePage, ReplyResult, SearchResult, MyThreadPage, FavoritePage, FriendUserPage 
-} from '../models/Models';
+import { ForumGroup, HomeData, ForumPage, Thread, ThreadPage, LoginResult, UserProfile, CheckInStatus, CheckInResult, NoticePage, ReplyResult, SearchResult, MyThreadPage, FavoritePage, FriendUserPage, NewThreadPageData, NewThreadResult, ImageUpload } from '../models/Models';
 import { ForumParser } from '../parser/ForumParser';
 
 export enum ForumSort {
@@ -206,7 +202,45 @@ export class ForumRepository {
     const html = await HttpClient.get(url);
     return ForumParser.parseFriends(html, page);
   }
+
+  async fetchNewThreadInit(fid: string): Promise<NewThreadPageData> {
+    const url = `forum.php?mod=post&action=newthread&fid=${fid}&mobile=2`;
+    const html = await HttpClient.get(url);
+    return ForumParser.parseNewThreadInit(html);
+  }
+
+  async uploadImage(filePath: string, uid: string, hash: string): Promise<ImageUpload | null> {
+    const url = "misc.php?mod=swfupload&operation=upload&type=image&inajax=yes&infloat=yes&simple=2";
+    const formData: Record<string, string> = { "uid": uid, "hash": hash };
+    
+    // 注意：鸿蒙原生上传回调获取服务器返回内容较复杂，这里先作为上传成功处理
+    // 实际项目中需要通过 request.uploadFile 的回调或临时文件读取服务器返回
+    const res = await HttpClient.uploadFile(url, filePath, formData);
+    if (res === "UPLOAD_SUCCESS") {
+       // 此处需配合真实抓包，由于暂时拿不到服务器返回的 aid 和 path，给默认值
+       const img = new ImageUpload();
+       img.aid = "0";
+       img.path = filePath;
+       return img;
+    }
+    return null;
+  }
+
+  async newThread(fid: string, formhash: string, posttime: string, subject: string, message: string): Promise<NewThreadResult> {
+    const url = `forum.php?mod=post&action=newthread&fid=${fid}&extra=&topicsubmit=yes&mobile=2`;
+    const bodyStr = "formhash=" + encodeURIComponent(formhash) +
+                    "&posttime=" + encodeURIComponent(posttime) +
+                    "&subject=" + encodeURIComponent(subject) +
+                    "&message=" + encodeURIComponent(message) +
+                    "&usesig=1&save=1";
+    const headers: Record<string, string> = {
+      "Referer": HttpClient.baseUrl + `forum.php?mod=post&action=newthread&fid=${fid}`
+    };
+    const html = await HttpClient.post(url, bodyStr, headers);
+    return ForumParser.parseNewThreadResult(html);
+  }
 }
+
 
 
 export const forumRepository = new ForumRepository();

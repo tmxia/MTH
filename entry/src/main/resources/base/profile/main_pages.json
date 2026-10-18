@@ -8,6 +8,7 @@
     "pages/MyPosts",
     "pages/MyFavorites",
     "pages/MyFriends",
-    "pages/SearchPage"
+    "pages/SearchPage",
+    "pages/PostEdit"
   ]
 }

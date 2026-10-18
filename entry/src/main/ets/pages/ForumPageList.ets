@@ -40,6 +40,8 @@ struct ForumPageList {
       Row() {
         Text('< 返回').fontSize(16).fontColor('#333').onClick(() => router.back())
         Text(this.title).fontSize(18).fontWeight(FontWeight.Bold).layoutWeight(1).textAlign(TextAlign.Center)
+        Text('发帖').fontSize(14).fontColor('#FFFFFF').backgroundColor('#4D6BFE').padding({ left: 10, right: 10, top: 4, bottom: 4 }).borderRadius(4)
+        .onClick(() => router.pushUrl({ url: 'pages/PostEdit', params: { fid: this.fid, name: this.title } }))
         Blank().width(40)
       }.width('100%').height(50).padding({ left: 16, right: 16 }).backgroundColor('#FFFFFF')
 
