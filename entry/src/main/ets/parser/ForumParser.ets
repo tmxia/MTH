@@ -1,4 +1,4 @@
-import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post } from '../models/Models';
+import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult } from '../models/Models';
 
 const RE_FID = /forum-(\d+)-/;
 const RE_TID = /thread-(\d+)-/;
@@ -370,4 +370,53 @@ export class ForumParser {
     tp.posts = posts;
     return tp;
   }
+
+  // ==========================================
+  // 6. 登录相关解析
+  // ==========================================
+  static extractLoginHash(html: string): string | null {
+    const match = /loginhash=([a-zA-Z0-9]+)/.exec(html);
+    return match ? match[1] : null;
+  }
+
+  static extractLoginFormhash(html: string): string | null {
+    const match = /name="formhash" value="([^"]+)"/.exec(html);
+    return match ? match[1] : null;
+  }
+
+  static parseLoginResult(html: string): LoginResult {
+    const result = new LoginResult();
+    
+    // 检查是否有成功提示或直接跳转
+    if (html.includes("欢迎您回来") || html.includes("现在将转入登录前页面") || html.includes("successhandle")) {
+      result.success = true;
+      result.message = "登录成功";
+      return result;
+    }
+
+    // 检查是否有需要验证码的提示
+    if (html.includes("需要验证码") || html.includes("seccode")) {
+      result.success = false;
+      result.needsCaptcha = true;
+      result.message = "需要验证码";
+      return result;
+    }
+
+    // 提取错误文本 (messagetext 或 <p> 标签)
+    let errMsg = "登录失败";
+    const dtMatch = /id=["']messagetext["'][^>]*>([\s\S]*?)<\/dt>/i.exec(html);
+    if (dtMatch) {
+      errMsg = this.stripInvisible(dtMatch[1].replace(/<[^>]+>/g, ''));
+    } else {
+      const pMatch = /<p>([\s\S]*?)(?:<script|<\/p>)/i.exec(html);
+      if (pMatch && !pMatch[1].includes("<img") && pMatch[1].trim().length > 0) {
+        errMsg = this.stripInvisible(pMatch[1].replace(/<[^>]+>/g, ''));
+      }
+    }
+
+    result.success = false;
+    result.message = errMsg;
+    return result;
+  }
 }
+

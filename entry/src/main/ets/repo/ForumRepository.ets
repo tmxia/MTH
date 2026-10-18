@@ -85,6 +85,43 @@ export class ForumRepository {
     }
     return tp;
   }
+
+  // 登录接口
+  async login(username: string, password: string, questionId: number = 0, answer: string = ""): Promise<LoginResult> {
+    const loginUrl = "member.php?mod=logging&action=login&mobile=2";
+    const loginPageHtml = await HttpClient.get(loginUrl);
+    
+    const loginhash = ForumParser.extractLoginHash(loginPageHtml);
+    const formhash = ForumParser.extractLoginFormhash(loginPageHtml) || "";
+    
+    if (!loginhash) {
+      const failRes = new LoginResult();
+      failRes.success = false;
+      failRes.message = "无法获取登录令牌（可能被风控拦截）";
+      return failRes;
+    }
+
+    const submitUrl = `member.php?mod=logging&action=login&loginsubmit=yes&loginhash=${loginhash}`;
+    const body = {
+      "formhash": formhash,
+      "referer": HttpClient['baseUrl'], // 访问基类静态属性
+      "fastloginfield": "username",
+      "cookietime": "31104000", // 一年免登录
+      "username": username,
+      "password": password,
+      "questionid": questionId.toString(),
+      "answer": answer,
+      "submit": "true"
+    };
+
+    const headers = {
+      "Referer": HttpClient['baseUrl'] + loginUrl
+    };
+
+    const resultHtml = await HttpClient.post(submitUrl, body, headers);
+    return ForumParser.parseLoginResult(resultHtml);
+  }
 }
+
 
 export const forumRepository = new ForumRepository();

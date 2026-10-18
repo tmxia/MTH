@@ -35,10 +35,14 @@ struct Index {
     Column() {
       Row() {
         Text('MT论坛').fontSize(20).fontWeight(FontWeight.Bold).fontColor('#333')
+        Blank()
+        Text('去登录').fontSize(14).fontColor('#4D6BFE').onClick(() => {
+          router.pushUrl({ url: 'pages/Login' });
+        })
       }
       .width('100%')
       .height(50)
-      .padding({ left: 16 })
+      .padding({ left: 16, right: 16 })
       .backgroundColor('#FFFFFF')
 
       if (this.isLoading) {
