@@ -1,4 +1,4 @@
-import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult, UserProfile, CheckInStatus, CheckInResult, Notice, NoticePage, ReplyResult } from '../models/Models';
+import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult, UserProfile, CheckInStatus, CheckInResult, Notice, NoticePage, ReplyResult, SearchResult, MyThreadPage, FavoritePage, FavoriteItem, FriendUserPage, FriendUserItem } from '../models/Models';
 
 const RE_FID = /forum-(\d+)-/;
 const RE_TID = /thread-(\d+)-/;
@@ -584,7 +584,104 @@ export class ForumParser {
     }
     return result;
   }
+
+  // ==========================================
+  // 11. 搜索解析
+  // ==========================================
+  static parseSearchResult(html: string): SearchResult {
+    const result = new SearchResult();
+    // 借用帖子的提取逻辑
+    const threads = this.parseForumPage(html, 1).threads;
+    result.threads = threads;
+    return result;
+  }
+
+  // ==========================================
+  // 12. 我的帖子解析 (复用 parseForumPage 的列表逻辑)
+  // ==========================================
+  static parseMyThreads(html: string, page: number): MyThreadPage {
+    const pageData = new MyThreadPage();
+    const fp = this.parseForumPage(html, page);
+    pageData.threads = fp.threads;
+    pageData.page = page;
+    pageData.hasNext = fp.hasNext;
+    return pageData;
+  }
+
+  // ==========================================
+  // 13. 我的收藏解析
+  // ==========================================
+  static parseFavorites(html: string, page: number): FavoritePage {
+    const fp = new FavoritePage();
+    fp.page = page;
+    fp.hasNext = html.includes("下一页");
+    
+    // 提取收藏列表 (通常是 ul 下的 li)
+    const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = liRegex.exec(html)) !== null) {
+      const content = match[1];
+      const tidMatch = /thread-(\d+)/.exec(content);
+      if (tidMatch) {
+        const item = new FavoriteItem();
+        item.id = tidMatch[1];
+        item.favid = tidMatch[1];
+        
+        const titleMatch = /<a[^>]*>([\s\S]*?)<\/a>/i.exec(content);
+        if (titleMatch) {
+          item.title = stripInvisible(titleMatch[1].replace(/<[^>]+>/g, ''));
+          if (item.title.length > 0) fp.items.push(item);
+        }
+      }
+    }
+    return fp;
+  }
+
+  // ==========================================
+  // 14. 我的好友解析
+  // ==========================================
+  static parseFriends(html: string, page: number): FriendUserPage {
+    const fp = new FriendUserPage();
+    fp.page = page;
+    fp.hasNext = html.includes("下一页");
+    
+    const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = liRegex.exec(html)) !== null) {
+      const content = match[1];
+      const uidMatch = /uid=(\d+)/.exec(content);
+      if (uidMatch) {
+        const user = new FriendUserItem();
+        user.uid = uidMatch[1];
+        
+        const nameMatch = /<h4[^>]*>([\s\S]*?)<\/h4>|<a[^>]*class="[^"]*kmname[^"]*"[^>]*>([\s\S]*?)<\/a>/i.exec(content);
+        if (nameMatch) {
+          user.username = stripInvisible((nameMatch[1] || nameMatch[2] || '').replace(/<[^>]+>/g, ''));
+          if (user.username) fp.users.push(user);
+        }
+      }
+    }
+    return fp;
+  }
+
+  // ==========================================
+  // 15. 详情页图片提取
+  // ==========================================
+  static extractImagesFromHtml(html: string): Array<string> {
+    const images: Array<string> = [];
+    const imgRegex = /<img[^>]*src="([^"]+)"/gi;
+    let match: RegExpExecArray | null;
+    while ((match = imgRegex.exec(html)) !== null) {
+      const url = match[1];
+      if (url.includes("smiley") || url.includes("static/image")) continue;
+      if (!images.includes(url)) {
+        images.push(url);
+      }
+    }
+    return images;
+  }
 }
+
 
 
 

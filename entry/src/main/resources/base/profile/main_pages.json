@@ -4,6 +4,10 @@
     "pages/ThreadDetail",
     "pages/Login",
     "pages/ForumPageList",
-    "pages/Notices"
+    "pages/Notices",
+    "pages/MyPosts",
+    "pages/MyFavorites",
+    "pages/MyFriends",
+    "pages/Search"
   ]
 }

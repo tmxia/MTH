@@ -2,7 +2,7 @@ import { HttpClient } from '../network/HttpClient';
 import { 
   ForumGroup, HomeData, ForumPage, Thread, ThreadPage, 
   LoginResult, UserProfile, CheckInStatus, CheckInResult, 
-  NoticePage, ReplyResult 
+  NoticePage, ReplyResult, SearchResult, MyThreadPage, FavoritePage, FriendUserPage 
 } from '../models/Models';
 import { ForumParser } from '../parser/ForumParser';
 
@@ -178,6 +178,35 @@ export class ForumRepository {
     const html = await HttpClient.post(url, bodyStr, headers);
     return ForumParser.parseReplyResponse(html);
   }
+
+  // 搜索帖子
+  async search(keyword: string, page: number = 1): Promise<SearchResult> {
+    const url = `search.php?mod=forum&srchtxt=${encodeURIComponent(keyword)}&searchsubmit=yes&page=${page}&mobile=2`;
+    const html = await HttpClient.get(url);
+    return ForumParser.parseSearchResult(html);
+  }
+
+  // 我的帖子
+  async myThreads(page: number = 1): Promise<MyThreadPage> {
+    const url = `home.php?mod=space&do=thread&view=me&type=thread&page=${page}&mobile=2`;
+    const html = await HttpClient.get(url);
+    return ForumParser.parseMyThreads(html, page);
+  }
+
+  // 我的收藏
+  async myFavorites(page: number = 1): Promise<FavoritePage> {
+    const url = `home.php?mod=space&do=favorite&view=me&type=all&page=${page}&mobile=2`;
+    const html = await HttpClient.get(url);
+    return ForumParser.parseFavorites(html, page);
+  }
+
+  // 我的好友
+  async myFriends(page: number = 1): Promise<FriendUserPage> {
+    const url = `home.php?mod=space&do=friend&page=${page}&mobile=2`;
+    const html = await HttpClient.get(url);
+    return ForumParser.parseFriends(html, page);
+  }
 }
+
 
 export const forumRepository = new ForumRepository();

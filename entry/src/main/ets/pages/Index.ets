@@ -67,6 +67,7 @@ struct HomeTab {
       Row() {
         Text('MT论坛').fontSize(20).fontWeight(FontWeight.Bold).fontColor('#333')
         Blank()
+        Text('搜索').fontSize(14).fontColor('#4D6BFE').margin({ right: 15 }).onClick(() => router.pushUrl({ url: 'pages/Search' }))
         Text('去登录').fontSize(14).fontColor('#4D6BFE').onClick(() => {
           router.pushUrl({ url: 'pages/Login' });
         })
@@ -77,16 +78,23 @@ struct HomeTab {
       } else if (this.errorMsg !== '') {
         Text(this.errorMsg).fontSize(16).fontColor(Color.Red).margin({ top: 100 })
       } else {
-        List({ space: 10 }) {
-          ForEach(this.threads, (item: Thread) => {
-            ListItem() {
-              this.ThreadCard(item)
-            }
-            .onClick(() => {
-              router.pushUrl({ url: 'pages/ThreadDetail', params: { tid: item.tid } });
-            })
-          }, (item: Thread) => item.tid)
-        }.width('100%').layoutWeight(1).padding(10).backgroundColor('#F5F5F5')
+        Refresh({ refreshing: $$this.isLoading }) {
+          List({ space: 10 }) {
+            ForEach(this.threads, (item: Thread) => {
+              ListItem() {
+                this.ThreadCard(item)
+              }
+              .onClick(() => {
+                router.pushUrl({ url: 'pages/ThreadDetail', params: { tid: item.tid } });
+              })
+            }, (item: Thread) => item.tid)
+          }.width('100%').layoutWeight(1).padding(10).backgroundColor('#F5F5F5')
+        }
+        .onRefreshing(() => {
+          this.loadData();
+        })
+        .width('100%')
+        .layoutWeight(1)
       }
     }.width('100%').height('100%')
   }
@@ -297,9 +305,9 @@ struct ProfileTab {
           // 菜单列表
           Column() {
             Row() { Text('消息通知').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' }).onClick(() => router.pushUrl({ url: 'pages/Notices' }))
-            Row() { Text('我的帖子').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' })
-            Row() { Text('我的收藏').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' })
-            Row() { Text('我的好友').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15) }
+            Row() { Text('我的帖子').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' }).onClick(() => router.pushUrl({ url: 'pages/MyPosts' }))
+            Row() { Text('我的收藏').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' }).onClick(() => router.pushUrl({ url: 'pages/MyFavorites' }))
+            Row() { Text('我的好友').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).onClick(() => router.pushUrl({ url: 'pages/MyFriends' })) }
           .width('100%').backgroundColor('#FFFFFF').borderRadius(12)
 
           // 退出登录按钮

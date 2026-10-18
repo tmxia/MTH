@@ -136,6 +136,21 @@ struct ThreadDetail {
 
       Text(post.contentHtml || '（暂无内容）').fontSize(15).fontColor('#333').lineHeight(24).copyOption(CopyOptions.LocalDevice)
 
+      // 渲染图片
+      if (post.imageUrls && post.imageUrls.length > 0) {
+        Column({ space: 8 }) {
+          ForEach(post.imageUrls, (url: string) => {
+            Image(url)
+              .width('100%')
+              .objectFit(ImageFit.Contain)
+              .borderRadius(6)
+              .backgroundColor('#F0F0F0')
+          }, (url: string) => url)
+        }
+        .width('100%')
+        .margin({ top: 10 })
+      }
+
       Row() {
         Text('回复').fontSize(12).fontColor('#666')
         Blank()
