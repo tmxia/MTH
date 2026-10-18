@@ -1,5 +1,5 @@
 import { HttpClient } from '../network/HttpClient';
-import { CookieManager } from '../network/CookieManager';
+import { cookieManager } from '../network/CookieManager';
 import common from '@ohos.app.ability.common';
 
 @Entry
@@ -9,17 +9,17 @@ struct Index {
   @State responseText: string = '';
 
   async aboutToAppear() {
-    let context = getContext(this) as common.UIAbilityContext;
-    await CookieManager.init(context);
+    // 修复 getContext 弃用，使用新的获取上下文方式
+    let context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    await cookieManager.init(context);
     
     try {
-      // 测试请求论坛首页
       let result = await HttpClient.get('/');
       this.message = 'MTF 首页请求成功';
       this.responseText = result.substring(0, 200) + '...\n\n(已截取前200字)';
-    } catch (e) {
+    } catch (error) {
       this.message = '网络请求失败';
-      this.responseText = JSON.stringify(e);
+      this.responseText = String(error);
     }
   }
 

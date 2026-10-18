@@ -4,7 +4,10 @@
     "type": "entry",
     "description": "$string:module_desc",
     "mainElement": "EntryAbility",
-    "deviceTypes": ["phone", "tablet"],
+    "deviceTypes": [
+      "phone",
+      "tablet"
+    ],
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",
@@ -20,10 +23,19 @@
         "exported": true,
         "skills": [
           {
-            "entities": ["entity.system.home"],
-            "actions": ["action.system.home"]
+            "entities": [
+              "entity.system.home"
+            ],
+            "actions": [
+              "action.system.home"
+            ]
           }
         ]
+      }
+    ],
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.INTERNET"
       }
     ]
   }
