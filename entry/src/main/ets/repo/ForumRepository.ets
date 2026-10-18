@@ -1,5 +1,5 @@
 import { HttpClient } from '../network/HttpClient';
-import { ForumGroup, HomeData, ForumPage, Thread, ThreadPage, LoginResult, UserProfile, CheckInStatus, CheckInResult, NoticePage, ReplyResult, SearchResult, MyThreadPage, FavoritePage, FriendUserPage, NewThreadPageData, NewThreadResult, ImageUpload } from '../models/Models';
+import { ForumGroup, HomeData, ForumPage, Thread, ThreadPage, LoginResult, UserProfile, CheckInStatus, CheckInResult, NoticePage, ReplyResult, SearchResult, MyThreadPage, FavoritePage, FriendUserPage, NewThreadPageData, NewThreadResult, ImageUpload, PmPage, ChatConversation } from '../models/Models';
 import { ForumParser } from '../parser/ForumParser';
 
 export enum ForumSort {
@@ -239,7 +239,29 @@ export class ForumRepository {
     const html = await HttpClient.post(url, bodyStr, headers);
     return ForumParser.parseNewThreadResult(html);
   }
+
+  async fetchPms(): Promise<PmPage> {
+    const url = "home.php?mod=space&do=pm&mobile=2";
+    const html = await HttpClient.get(url);
+    return ForumParser.parsePmPage(html);
+  }
+
+  async fetchChat(touid: string): Promise<ChatConversation> {
+    const url = `home.php?mod=space&do=pm&subop=view&touid=${touid}&mobile=2`;
+    const html = await HttpClient.get(url);
+    return ForumParser.parseChatConversation(html, touid);
+  }
+
+  async sendPm(touid: string, formhash: string, message: string): Promise<boolean> {
+    const url = `home.php?mod=spacecp&ac=pm&op=send&touid=${touid}&mobile=2`;
+    const bodyStr = "formhash=" + encodeURIComponent(formhash) +
+                    "&message=" + encodeURIComponent(message) +
+                    "&pmsubmit=yes";
+    const html = await HttpClient.post(url, bodyStr, { "Referer": HttpClient.baseUrl + `home.php?mod=space&do=pm&subop=view&touid=${touid}` });
+    return html.includes("发送成功") || html.includes("succeedhandle");
+  }
 }
+
 
 
 

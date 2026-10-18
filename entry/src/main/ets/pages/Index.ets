@@ -306,6 +306,7 @@ struct ProfileTab {
           // 菜单列表
           Column() {
             Row() { Text('消息通知').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' }).onClick(() => router.pushUrl({ url: 'pages/Notices' }))
+            Row() { Text('我的私信').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' }).onClick(() => router.pushUrl({ url: 'pages/PmList' }))
             Row() { Text('我的帖子').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' }).onClick(() => router.pushUrl({ url: 'pages/MyPosts' }))
             Row() { Text('我的收藏').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' }).onClick(() => router.pushUrl({ url: 'pages/MyFavorites' }))
             Row() { Text('我的好友').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).onClick(() => router.pushUrl({ url: 'pages/MyFriends' })) }

@@ -1,4 +1,4 @@
-import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult, UserProfile, CheckInStatus, CheckInResult, Notice, NoticePage, ReplyResult, SearchResult, MyThreadPage, FavoritePage, FavoriteItem, FriendUserPage, FriendUserItem, NewThreadPageData, NewThreadResult, ImageUpload } from '../models/Models';
+import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult, UserProfile, CheckInStatus, CheckInResult, Notice, NoticePage, ReplyResult, SearchResult, MyThreadPage, FavoritePage, FavoriteItem, FriendUserPage, FriendUserItem, NewThreadPageData, NewThreadResult, ImageUpload, PmPage, PrivateMessage, ChatConversation, ChatMessage } from '../models/Models';
 
 const RE_FID = /forum-(\d+)-/;
 const RE_TID = /thread-(\d+)-/;
@@ -641,5 +641,68 @@ export class ForumParser {
     }
     return result;
   }
+
+  static parsePmPage(html: string): PmPage {
+    const page = new PmPage();
+    if (html.includes("您需要先登录") || html.includes("立即登录")) {
+      page.loggedOut = true;
+      return page;
+    }
+    
+    // 匹配私信列表项
+    const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+    let match: RegExpExecArray | null;
+    
+    while ((match = liRegex.exec(html)) !== null) {
+      const li = match[1];
+      const touidMatch = /touid=(\d+)/.exec(li) || /uid=(\d+)/.exec(li);
+      if (touidMatch) {
+        const msg = new PrivateMessage();
+        msg.touid = touidMatch[1];
+        msg.plid = Math.random().toString(36).substr(2, 9);
+        
+        const nameMatch = /<h4[^>]*>([\s\S]*?)<\/h4>|<a[^>]*class="[^"]*kmname[^"]*"[^>]*>([\s\S]*?)<\/a>/i.exec(li);
+        if (nameMatch) {
+          msg.username = ForumParser.stripInvisible((nameMatch[1] || nameMatch[2] || '').replace(/<[^>]+>/g, ''));
+        }
+
+        const summaryMatch = /<p[^>]*>([\s\S]*?)<\/p>/i.exec(li);
+        if (summaryMatch) {
+          msg.summary = ForumParser.stripInvisible(summaryMatch[1].replace(/<[^>]+>/g, ''));
+        }
+
+        const timeMatch = /<span[^>]*>([\s\S]*?)<\/span>/i.exec(li);
+        if (timeMatch) {
+          msg.timeText = ForumParser.stripInvisible(timeMatch[1]);
+        }
+
+        if (msg.username || msg.summary) {
+          page.messages.push(msg);
+        }
+      }
+    }
+    return page;
+  }
+
+  static parseChatConversation(html: string, touid: string): ChatConversation {
+    const conv = new ChatConversation();
+    conv.touid = touid;
+    // 提取 formhash
+    const fhMatch = /name="formhash" value="([^"]+)"/i.exec(html);
+    if (fhMatch) conv.formhash = fhMatch[1];
+    
+    // 此处为标准 Discuz 聊天记录提取，依据具体 DOM 结构简易适配
+    const msgRegex = /<div[^>]*class="[^"]*(?:comiis_pm_list|message)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = msgRegex.exec(html)) !== null) {
+      const msg = new ChatMessage();
+      msg.id = Math.random().toString(36).substr(2, 9);
+      msg.text = ForumParser.stripInvisible(match[1].replace(/<[^>]+>/g, ''));
+      msg.isSelf = match[1].includes("isSelf") || match[1].includes("我的消息");
+      conv.messages.push(msg);
+    }
+    return conv;
+  }
 }
+
 

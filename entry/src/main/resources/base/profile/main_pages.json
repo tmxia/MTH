@@ -9,6 +9,8 @@
     "pages/MyFavorites",
     "pages/MyFriends",
     "pages/SearchPage",
-    "pages/PostEdit"
+    "pages/PostEdit",
+    "pages/PmList",
+    "pages/Chat"
   ]
 }
