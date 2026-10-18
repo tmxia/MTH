@@ -1,10 +1,10 @@
 import { cookieManager } from '../network/CookieManager';
 import { forumRepository } from '../repo/ForumRepository';
-import { Thread, ForumGroup, Forum } from '../models/Models';
+import { Thread, ForumGroup, Forum , CheckInStatus} from '../models/Models';
 import common from '@ohos.app.ability.common';
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
-import { UserProfile } from '../models/Models';
+import { UserProfile , CheckInStatus} from '../models/Models';
 
 @Entry
 @Component

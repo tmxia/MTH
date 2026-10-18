@@ -1,6 +1,7 @@
 import { forumRepository } from '../repo/ForumRepository';
 import { ThreadPage, Post } from '../models/Models';
 import router from '@ohos.router';
+import promptAction from '@ohos.promptAction';
 
 @Entry
 @Component
