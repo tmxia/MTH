@@ -206,7 +206,7 @@ export class ForumParser {
   static parsePortalFeed(xml: string): Array<Thread> {
     const cdataMatch = RE_CDATA.exec(xml);
     if (!cdataMatch) return [];
-    return this.parseForumPage(cdataMatch[1], 1).threads;
+    return ForumParser.parseForumPage(cdataMatch[1], 1).threads;
   }
 
   static parseForumPage(html: string, page: number): ForumPage {

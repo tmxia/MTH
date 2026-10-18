@@ -12,13 +12,9 @@ export enum ForumSort {
 const GUIDE_VIEW_PORTAL = "hot";
 
 export class ForumRepository {
-  private http: typeof HttpClient;
-  
   public blockedUidsProvider: () => Set<string> = () => new Set<string>();
 
-  constructor(http: typeof HttpClient) {
-    this.http = http;
-  }
+  constructor() {}
 
   private currentBlocked(): Set<string> {
     return this.blockedUidsProvider();
@@ -26,13 +22,13 @@ export class ForumRepository {
 
   async forumGroups(): Promise<Array<ForumGroup>> {
     const url = "forum.php?forumlist=1&mobile=2";
-    const html = await this.http.get(url);
+    const html = await HttpClient.get(url);
     return ForumParser.parseForumList(html);
   }
 
   async home(): Promise<HomeData> {
     const url = "forum.php?mod=guide&view=hot&mobile=2";
-    const html = await this.http.get(url);
+    const html = await HttpClient.get(url);
     const data = ForumParser.parseHome(html);
     
     const blocked = this.currentBlocked();
@@ -51,7 +47,7 @@ export class ForumRepository {
     
     if (view === GUIDE_VIEW_PORTAL) {
       const url = `plugin.php?id=comiis_app_portal&pid=1&page=${page}&inajax=1`;
-      const html = await this.http.get(url);
+      const html = await HttpClient.get(url);
       const threads = ForumParser.parsePortalFeed(html);
       
       const fp = new ForumPage();
@@ -63,7 +59,7 @@ export class ForumRepository {
       return fp;
     } else {
       const url = `forum.php?mod=guide&view=${view}&page=${page}&mobile=2`;
-      const html = await this.http.get(url);
+      const html = await HttpClient.get(url);
       const fp = ForumParser.parseForumPage(html, page);
       
       if (blocked.size === 0) {
@@ -76,12 +72,11 @@ export class ForumRepository {
     }
   }
 
-  // 修复：确保此方法在类内部且语法正确
   async threadPage(tid: string, page: number, orderType: number = 0, authorId: string | null = null): Promise<ThreadPage> {
     let orderStr = orderType === 1 ? "&ordertype=1" : "";
     let authorStr = (authorId && authorId.trim() !== "") ? `&authorid=${authorId}` : "";
     const url = `forum.php?mod=viewthread&tid=${tid}&page=${page}${orderStr}${authorStr}&mobile=2`;
-    const html = await this.http.get(url);
+    const html = await HttpClient.get(url);
     const tp = ForumParser.parseThreadPage(html, page);
     
     const blocked = this.currentBlocked();
@@ -92,4 +87,4 @@ export class ForumRepository {
   }
 }
 
-export const forumRepository = new ForumRepository(HttpClient);
+export const forumRepository = new ForumRepository();

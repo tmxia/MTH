@@ -2,7 +2,6 @@ import { cookieManager } from '../network/CookieManager';
 import { forumRepository } from '../repo/ForumRepository';
 import { Thread } from '../models/Models';
 import common from '@ohos.app.ability.common';
-import { router } from '@kit.ArkUI';
 
 @Entry
 @Component

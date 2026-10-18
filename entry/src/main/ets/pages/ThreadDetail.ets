@@ -1,6 +1,5 @@
 import { forumRepository } from '../repo/ForumRepository';
 import { ThreadPage, Post } from '../models/Models';
-import { router } from '@kit.ArkUI';
 
 @Entry
 @Component
@@ -10,7 +9,7 @@ struct ThreadDetail {
   @State errorMsg: string = '';
 
   async aboutToAppear() {
-    const params = router.getParams() as Record<string, string>;
+    const params = this.getUIContext().getRouter().getParams() as Record<string, string>;
     if (params && params.tid) {
       await this.loadData(params.tid, 1);
     } else {
@@ -36,7 +35,7 @@ struct ThreadDetail {
       // 顶部导航
       Row() {
         Text('< 返回').fontSize(16).fontColor('#333').onClick(() => {
-          router.back();
+          this.getUIContext().getRouter().back();
         })
         Text('帖子详情').fontSize(18).fontWeight(FontWeight.Bold).layoutWeight(1).textAlign(TextAlign.Center)
         Blank().width(40)
