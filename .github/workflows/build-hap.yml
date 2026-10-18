@@ -16,11 +16,10 @@ jobs:
           java-version: '17'
       - name: Setup OpenHarmony SDK
         uses: ErBWs/setup-ohos@v2
-        with:
-          version: '5.0.0' # 使用正确的参数名，下载 API 12 的 SDK
+        # 这里不再指定 version，使用它默认的稳定版本（上次默认是 API 26）
       - name: Build HAP
         run: |
-          # 直接调用全局 hvigorw 进行构建
+          # 直接调用全局工具链构建，无需 ohpm install
           hvigorw clean --no-daemon
           hvigorw assembleHap --mode module -p product=default --no-parallel --no-daemon
       - name: Upload HAP Artifact
