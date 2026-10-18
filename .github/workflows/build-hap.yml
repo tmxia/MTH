@@ -21,7 +21,7 @@ jobs:
       - name: Setup OpenHarmony SDK
         uses: ErBWs/setup-ohos@v2
 
-      # 1. 将签名文件放入 hvigor 期望的 material 目录中
+      # 1. 将签名文件放入 material 目录（不要带多余前缀）
       - name: Restore Signing Files
         run: |
           mkdir -p material
@@ -29,7 +29,7 @@ jobs:
           echo "${{ secrets.HAP_P7B_BASE64 }}" | base64 -d > material/signature.p7b
           keytool -exportcert -alias "${{ secrets.HAP_KEY_ALIAS }}" -keystore material/signature.p12 -storepass "${{ secrets.HAP_KEY_PASSWORD }}" -file material/signature.cer
 
-      # 2. 注入带 material 路径的签名配置
+      # 2. 动态注入签名配置（路径不要写 material/ 前缀，只写文件名）
       - name: Configure Signing in build-profile.json5
         run: |
           python3 -c "
@@ -39,13 +39,13 @@ jobs:
               'name': 'default',
               'type': 'HarmonyOS',
               'material': {
-                  'certpath': 'material/signature.cer',
+                  'certpath': 'signature.cer',
                   'storePassword': '${{ secrets.HAP_KEY_PASSWORD }}',
                   'keyAlias': '${{ secrets.HAP_KEY_ALIAS }}',
                   'keyPassword': '${{ secrets.HAP_KEY_PASSWORD }}',
-                  'profile': 'material/signature.p7b',
+                  'profile': 'signature.p7b',
                   'signAlg': 'SHA256withECDSA',
-                  'storeFile': 'material/signature.p12'
+                  'storeFile': 'signature.p12'
               }
           }]
           with open('build-profile.json5', 'w') as f: json.dump(data, f, indent=2)
