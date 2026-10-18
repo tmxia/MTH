@@ -21,15 +21,8 @@ jobs:
       - name: Setup OpenHarmony SDK
         uses: ErBWs/setup-ohos@v2
 
-      # 1. 还原证书文件
-      - name: Restore Signing Files
-        run: |
-          echo "${{ secrets.HAP_P12_BASE64 }}" | base64 -d > signature.p12
-          echo "${{ secrets.HAP_P7B_BASE64 }}" | base64 -d > signature.p7b
-          keytool -exportcert -alias "${{ secrets.HAP_KEY_ALIAS }}" -keystore signature.p12 -storepass "${{ secrets.HAP_KEY_PASSWORD }}" -rfc -file signature.cer
-
-      # 2. 清空 build-profile.json5 的签名配置，强行让 hvigor 不执行自动签名
-      - name: Disable hvigor auto-sign
+      # 清空签名配置，强制生成未签名包
+      - name: Remove Signing Configs
         run: |
           python3 -c "
           import json
@@ -38,43 +31,26 @@ jobs:
           with open('build-profile.json5', 'w') as f: json.dump(data, f, indent=2)
           "
 
-      # 3. 编译生成未签名包 (此时会生成 entry-default-unsigned.hap)
+      # 编译打包
       - name: Build HAP
         run: |
           hvigorw clean --no-daemon
           hvigorw assembleHap --mode module -p product=default --no-parallel --no-daemon
 
-      # 4. 使用官方签名工具手动签名
-      - name: Sign HAP manually
-        run: |
-          # 查找签名工具位置
-          SIGN_TOOL=$(find $HOS_SDK_HOME -name "hap-sign-tool.jar" | head -n 1)
-          echo "Found sign tool: $SIGN_TOOL"
-          
-          # 找到未签名的 hap 文件
-          UNSIGNED_HAP=$(find entry/build/default/outputs/default -name "*.hap" | grep -v "signed" | head -n 1)
-          if [ -z "$UNSIGNED_HAP" ]; then
-            UNSIGNED_HAP=$(find entry/build/default/outputs/default -name "*.hap" | head -n 1)
-          fi
-          echo "Unsigned HAP: $UNSIGNED_HAP"
-          
-          # 执行官方签名
-          java -jar "$SIGN_TOOL" sign-app             -keyAlias "${{ secrets.HAP_KEY_ALIAS }}"             -signAlg "SHA256withECDSA"             -mode "localSign"             -appCertFile "signature.cer"             -profileFile "signature.p7b"             -inFile "$UNSIGNED_HAP"             -keystoreFile "signature.p12"             -outFile "entry/build/default/outputs/default/entry-default-signed.hap"             -keyPwd "${{ secrets.HAP_KEY_PASSWORD }}"             -keystorePwd "${{ secrets.HAP_KEY_PASSWORD }}"
-
-      # 5. 自动发布到 Releases
+      # 自动发布未签名的包到 Releases
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: MTH Release v1.0.${{ github.run_number }}
-          body: "Auto-built and signed by GitHub Actions."
-          files: entry/build/default/outputs/default/entry-default-signed.hap
+          tag_name: v1.0.${{ github.run_number }}-unsigned
+          name: MTH Release v1.0.${{ github.run_number }} (Unsigned)
+          body: "Auto-built by GitHub Actions. (Unsigned HAP, cannot be installed on real devices directly)"
+          files: entry/build/default/outputs/default/*.hap
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 6. 保留 Actions 产物
+      # 保留 Actions 产物
       - name: Upload HAP Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MTH-Signed-HAP
-          path: entry/build/default/outputs/default/entry-default-signed.hap
+          name: MTH-Unsigned-HAP
+          path: entry/build/default/outputs/default/*.hap
