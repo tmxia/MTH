@@ -364,20 +364,9 @@ export class ThreadType {
   name: string = "";
 }
 
-export class NewThreadPageData {
-  formhash: string = "";
-  posttime: string | null = null;
-  uploadUid: string | null = null;
-  uploadHash: string | null = null;
-  types: Array<ThreadType> = [];
-  permissionDenied: string | null = null;
-}
 
-export class NewThreadResult {
-  success: boolean = false;
-  tid: string | null = null;
-  message: string | null = null;
-}
+
+
 
 export class EditAttachment {
   aid: string = "";
@@ -420,6 +409,14 @@ export class HistoryItem {
   type: string = "thread";
 }
 
+
+
+
+
+
+
+
+// === 发帖相关模型 (最终去重版) ===
 export class ImageUpload {
   aid: string = "";
   path: string = "";

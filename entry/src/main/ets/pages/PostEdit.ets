@@ -2,7 +2,7 @@ import { forumRepository } from '../repo/ForumRepository';
 import { NewThreadPageData, ImageUpload } from '../models/Models';
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
-import picker from '@ohos.file.picker';
+import { photoAccessHelper } from '@kit.MediaLibraryKit';
 
 @Entry
 @Component
@@ -40,8 +40,8 @@ struct PostEdit {
       return;
     }
     try {
-      let photoPicker = new picker.PhotoViewPicker();
-      let res: picker.PhotoSelectResult = await photoPicker.select({ maxSelectNumber: 1, MIMEType: picker.PhotoViewMIMETypes.IMAGE_TYPE });
+      let photoPicker = new photoAccessHelper.PhotoViewPicker();
+      let res = await photoPicker.select({ maxSelectNumber: 1, MIMEType: photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE }) as photoAccessHelper.PhotoSelectResult;
       if (res.photoUris.length > 0) {
         this.isUploading = true;
         let img = await forumRepository.uploadImage(res.photoUris[0], this.initData.uploadUid, this.initData.uploadHash);
