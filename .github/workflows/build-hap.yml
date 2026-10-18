@@ -16,12 +16,39 @@ jobs:
           java-version: '17'
       - name: Setup OpenHarmony SDK
         uses: ErBWs/setup-ohos@v2
-        # 这里不再指定 version，使用它默认的稳定版本（上次默认是 API 26）
+
+      - name: Restore Signing Files
+        run: |
+          echo "${{ secrets.HAP_P12_BASE64 }}" | base64 -d > signature.p12
+          echo "${{ secrets.HAP_P7B_BASE64 }}" | base64 -d > signature.p7b
+          keytool -exportcert -alias "${{ secrets.HAP_KEY_ALIAS }}" -keystore signature.p12 -storepass "${{ secrets.HAP_KEY_PASSWORD }}" -file signature.cer
+
+      - name: Configure Signing in build-profile.json5
+        run: |
+          python3 -c "
+          import json
+          with open('build-profile.json5', 'r') as f: data = json.load(f)
+          data['app']['signingConfigs'] = [{
+              'name': 'default',
+              'type': 'HarmonyOS',
+              'material': {
+                  'certpath': 'signature.cer',
+                  'storePassword': '${{ secrets.HAP_KEY_PASSWORD }}',
+                  'keyAlias': '${{ secrets.HAP_KEY_ALIAS }}',
+                  'keyPassword': '${{ secrets.HAP_KEY_PASSWORD }}',
+                  'profile': 'signature.p7b',
+                  'signAlg': 'SHA256withECDSA',
+                  'storeFile': 'signature.p12'
+              }
+          }]
+          with open('build-profile.json5', 'w') as f: json.dump(data, f, indent=2)
+          "
+
       - name: Build HAP
         run: |
-          # 直接调用全局工具链构建，无需 ohpm install
           hvigorw clean --no-daemon
           hvigorw assembleHap --mode module -p product=default --no-parallel --no-daemon
+
       - name: Upload HAP Artifact
         uses: actions/upload-artifact@v4
         with:
