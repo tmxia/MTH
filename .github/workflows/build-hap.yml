@@ -21,15 +21,15 @@ jobs:
       - name: Setup OpenHarmony SDK
         uses: ErBWs/setup-ohos@v2
 
-      # 1. 将签名文件放入 material 目录（不要带多余前缀）
+      # 1. 直接在根目录生成签名文件
       - name: Restore Signing Files
         run: |
-          mkdir -p material
-          echo "${{ secrets.HAP_P12_BASE64 }}" | base64 -d > material/signature.p12
-          echo "${{ secrets.HAP_P7B_BASE64 }}" | base64 -d > material/signature.p7b
-          keytool -exportcert -alias "${{ secrets.HAP_KEY_ALIAS }}" -keystore material/signature.p12 -storepass "${{ secrets.HAP_KEY_PASSWORD }}" -file material/signature.cer
+          echo "${{ secrets.HAP_P12_BASE64 }}" | base64 -d > signature.p12
+          echo "${{ secrets.HAP_P7B_BASE64 }}" | base64 -d > signature.p7b
+          keytool -exportcert -alias "${{ secrets.HAP_KEY_ALIAS }}" -keystore signature.p12 -storepass "${{ secrets.HAP_KEY_PASSWORD }}" -file signature.cer
+          ls -la signature.*
 
-      # 2. 动态注入签名配置（路径不要写 material/ 前缀，只写文件名）
+      # 2. 配置 build-profile.json5，使用根目录相对路径
       - name: Configure Signing in build-profile.json5
         run: |
           python3 -c "
