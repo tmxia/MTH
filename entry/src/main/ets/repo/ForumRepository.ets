@@ -1,4 +1,5 @@
 import { HttpClient } from '../network/HttpClient';
+import { ForumGroup, HomeData, ForumPage, Thread } from '../models/Models';
 
 // ==========================================
 // 1. 枚举和常量
@@ -10,55 +11,40 @@ export enum ForumSort {
   POLL = "投票"
 }
 
-// 正则转换：使用原生 RegExp
-const REPLY_ERROR_PATTERN = new RegExp("抱歉|非 法操作|请先登录|需要先登录|没有权限|审核");
-const LOGIN_DIAG_HINTS = [
-  "密码错误", "密码不正确", "密码为空", "用户名不存在", "账号不存在", "该用户不存在",
-  "需要验证码", "请填写验证码", "验证码错误", "请输入验证码", "seccode",
-  "失败次数", "次数过多", "请稍后再试", "请稍后重试", "锁定", "安全提问", "answer"
-];
-const LIKE_ERROR_PATTERN = new RegExp("没有点赞权限|不能点赞|今日评价机会已用完|关 闭的主题|请先登录|formhash错误|非法操作|不能收藏|submit_invalid|errorhandle_");
-const REPORT_ERROR_PATTERN = new RegExp("举报理由|action=login|请先登录");
-const DELETE_FORM_ACTION = new RegExp("action=edit");
-const DELETE_FORM_SUBMIT = new RegExp("editsubmit");
-const REWARD_SUCCESS_PATTERN = new RegExp("succeedhandle_rate|rate_success|评分成功|打赏成功|评价成功|您已成功评分");
-const REWARD_FAIL_PATTERN = new RegExp("24小时|24 小时|已经评分|已评价|已评分|重复评分|评分失败|积分不足|余额不足|formhash错误|非法操作|没有权限|请先登录");
-const TOPICADMIN_SUCCESS = new RegExp("管理操作 成功");
-
-const SMILEY_URL = HttpClient['baseUrl'] + "data/cache/common_smilies_var.js";
-const SMILEY_REVALIDATE_INTERVAL_MS = 12 * 60 * 60 * 1000;
-const RE_ATTACHIMG_AID = new RegExp("\\[attachimg\\](\\d+)\\[/attachimg\\]", "gi");
-const RE_EDIT_QUOTE_TAG = new RegExp("\\[/?(?:quote|size)\\b[^\\]]*]", "gi");
 const GUIDE_VIEW_PORTAL = "hot";
-const ATTACHMENT_CDN = "https://cdn.binmt.cc/";
 
 // ==========================================
-// 2. 工具函数
+// 2. 占位解析器 (等后续移植真实 ForumParser)
 // ==========================================
-export function rawSnippet(body: string, key: string, radius: number = 250): string | null {
-  const i = body.indexOf(key);
-  if (i < 0) return null;
-  const start = Math.max(i - radius, 0);
-  const end = Math.min(i + radius, body.length);
-  return body.substring(start, end);
-}
-
-export function protectQuoteTagsOnEdit(message: string): string {
-  return message.replace(RE_EDIT_QUOTE_TAG, (match: string) => {
-    return match.toUpperCase();
-  });
+class ForumParser {
+  static parseForumList(html: string): Array<ForumGroup> {
+    console.info("TODO: 待实现真实的 ForumParser.parseForumList");
+    return [];
+  }
+  static parseHome(html: string): HomeData {
+    console.info("TODO: 待实现真实的 ForumParser.parseHome");
+    return new HomeData();
+  }
+  static parsePortalFeed(html: string): Array<Thread> {
+    return [];
+  }
+  static parseForumPage(html: string, page: number): ForumPage {
+    const fp = new ForumPage();
+    fp.page = page;
+    return fp;
+  }
 }
 
 // ==========================================
 // 3. 业务仓库类
 // ==========================================
 export class ForumRepository {
-  private http: HttpClient;
+  private http: typeof HttpClient;
   
-  // 预留的扩展属性
+  // 预留扩展属性，默认为空集合
   public blockedUidsProvider: () => Set<string> = () => new Set<string>();
 
-  constructor(http: HttpClient) {
+  constructor(http: typeof HttpClient) {
     this.http = http;
   }
 
@@ -66,22 +52,62 @@ export class ForumRepository {
     return this.blockedUidsProvider();
   }
 
-  // 提取帖子内容中的图片附件 AID
-  private attachAids(message: string): Array<string> {
-    const aids: Set<string> = new Set<string>();
-    let match: RegExpExecArray | null;
+  // 获取版块列表
+  async forumGroups(): Promise<Array<ForumGroup>> {
+    const url = "forum.php?forumlist=1&mobile=2";
+    const html = await this.http.get(url);
+    return ForumParser.parseForumList(html);
+  }
+
+  // 获取首页推荐数据 (热门)
+  async home(): Promise<HomeData> {
+    const url = "forum.php?mod=guide&view=hot&mobile=2";
+    const html = await this.http.get(url);
+    const data = ForumParser.parseHome(html);
     
-    // 重置正则的 lastIndex，防止多次调用出错
-    RE_ATTACHIMG_AID.lastIndex = 0;
+    const blocked = this.currentBlocked();
+    if (blocked.size === 0) {
+      return data;
+    } else {
+      // 过滤被屏蔽用户的热帖
+      data.hotThreads = data.hotThreads.filter((thread: Thread) => {
+        return !(thread.authorUid && blocked.has(thread.authorUid));
+      });
+      return data;
+    }
+  }
+
+  // 获取导读流 (最新/热门/精华/回复)
+  async guideFeed(view: string, page: number): Promise<ForumPage> {
+    const blocked = this.currentBlocked();
     
-    while ((match = RE_ATTACHIMG_AID.exec(message)) !== null) {
-      if (match[1]) {
-        aids.add(match[1]);
+    if (view === GUIDE_VIEW_PORTAL) {
+      const url = `plugin.php?id=comiis_app_portal&pid=1&page=${page}&inajax=1`;
+      const html = await this.http.get(url);
+      const threads = ForumParser.parsePortalFeed(html);
+      
+      const fp = new ForumPage();
+      fp.forumName = null;
+      fp.announcements = [];
+      fp.threads = blocked.size === 0 ? threads : threads.filter((t: Thread) => !(t.authorUid && blocked.has(t.authorUid)));
+      fp.page = page;
+      fp.hasNext = threads.length > 0;
+      return fp;
+    } else {
+      const url = `forum.php?mod=guide&view=${view}&page=${page}&mobile=2`;
+      const html = await this.http.get(url);
+      const fp = ForumParser.parseForumPage(html, page);
+      
+      if (blocked.size === 0) {
+        return fp;
+      } else {
+        fp.announcements = fp.announcements.filter((t: Thread) => !(t.authorUid && blocked.has(t.authorUid)));
+        fp.threads = fp.threads.filter((t: Thread) => !(t.authorUid && blocked.has(t.authorUid)));
+        return fp;
       }
     }
-    return Array.from(aids);
   }
 }
 
-// 导出单例供全局使用（依赖注入留空）
-export const forumRepository = new ForumRepository(HttpClient as unknown as HttpClient);
+// 导出单例
+export const forumRepository = new ForumRepository(HttpClient);
