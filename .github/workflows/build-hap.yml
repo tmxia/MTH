@@ -21,16 +21,20 @@ jobs:
       - name: Setup OpenHarmony SDK
         uses: ErBWs/setup-ohos@v2
 
-      # 1. 强制创建 material 目录并放入签名文件
       - name: Restore Signing Files
         run: |
+          # 防止某些校验报找不到 material 目录
           mkdir -p material
-          echo "${{ secrets.HAP_P12_BASE64 }}" | base64 -d > material/signature.p12
-          echo "${{ secrets.HAP_P7B_BASE64 }}" | base64 -d > material/signature.p7b
-          keytool -exportcert -alias "${{ secrets.HAP_KEY_ALIAS }}" -keystore material/signature.p12 -storepass "${{ secrets.HAP_KEY_PASSWORD }}" -file material/signature.cer
-          ls -la material/
+          
+          echo "${{ secrets.HAP_P12_BASE64 }}" | base64 -d > signature.p12
+          echo "${{ secrets.HAP_P7B_BASE64 }}" | base64 -d > signature.p7b
+          
+          # 关键修复：加上 -rfc 参数，导出 PEM 文本格式的证书，解决 Invalid certpath 问题
+          keytool -exportcert -alias "${{ secrets.HAP_KEY_ALIAS }}" -keystore signature.p12 -storepass "${{ secrets.HAP_KEY_PASSWORD }}" -rfc -file signature.cer
+          
+          # 打印一下文件信息确认
+          ls -la signature.*
 
-      # 2. 注入签名配置（路径只写文件名，不要带前缀）
       - name: Configure Signing in build-profile.json5
         run: |
           python3 -c "
@@ -40,25 +44,23 @@ jobs:
               'name': 'default',
               'type': 'HarmonyOS',
               'material': {
-                  'certpath': 'signature.cer',
+                  'certpath': './signature.cer',
                   'storePassword': '${{ secrets.HAP_KEY_PASSWORD }}',
                   'keyAlias': '${{ secrets.HAP_KEY_ALIAS }}',
                   'keyPassword': '${{ secrets.HAP_KEY_PASSWORD }}',
-                  'profile': 'signature.p7b',
+                  'profile': './signature.p7b',
                   'signAlg': 'SHA256withECDSA',
-                  'storeFile': 'signature.p12'
+                  'storeFile': './signature.p12'
               }
           }]
           with open('build-profile.json5', 'w') as f: json.dump(data, f, indent=2)
           "
 
-      # 3. 编译打包
       - name: Build HAP
         run: |
           hvigorw clean --no-daemon
           hvigorw assembleHap --mode module -p product=default --no-parallel --no-daemon
 
-      # 4. 自动发布到 Releases
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -69,7 +71,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 5. 保留 Actions 产物
       - name: Upload HAP Artifact
         uses: actions/upload-artifact@v4
         with:
