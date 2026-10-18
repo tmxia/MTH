@@ -9,8 +9,12 @@ export class CookieManager {
 
   async init(context: common.UIAbilityContext): Promise<void> {
     if (!this.pref) {
-      this.pref = await preferences.getPreferences(context, this.STORE_NAME);
-      this.cookieCache = await this.pref.get(this.KEY_COOKIE, '') as string;
+      try {
+        this.pref = await preferences.getPreferences(context, this.STORE_NAME);
+        this.cookieCache = await this.pref.get(this.KEY_COOKIE, '') as string;
+      } catch (e) {
+        console.error('Init Cookie Error: ' + JSON.stringify(e));
+      }
     }
   }
 
@@ -18,8 +22,12 @@ export class CookieManager {
     if (!cookie || cookie === this.cookieCache) return;
     this.cookieCache = cookie;
     if (this.pref) {
-      await this.pref.put(this.KEY_COOKIE, cookie);
-      await this.pref.flush();
+      try {
+        await this.pref.put(this.KEY_COOKIE, cookie);
+        await this.pref.flush();
+      } catch (e) {
+        console.error('Save Cookie Error: ' + JSON.stringify(e));
+      }
     }
   }
 
@@ -30,11 +38,14 @@ export class CookieManager {
   async clear(): Promise<void> {
     this.cookieCache = '';
     if (this.pref) {
-      await this.pref.delete(this.KEY_COOKIE);
-      await this.pref.flush();
+      try {
+        await this.pref.delete(this.KEY_COOKIE);
+        await this.pref.flush();
+      } catch (e) {
+        console.error('Clear Cookie Error: ' + JSON.stringify(e));
+      }
     }
   }
 }
 
-// 导出单例
 export const cookieManager = new CookieManager();
