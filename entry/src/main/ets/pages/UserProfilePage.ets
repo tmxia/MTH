@@ -1,6 +1,7 @@
 import { forumRepository } from '../repo/ForumRepository';
 import { UserProfile, MyThreadPage, Thread } from '../models/Models';
 import router from '@ohos.router';
+import promptAction from '@ohos.promptAction';
 
 @Entry
 @Component
@@ -9,6 +10,8 @@ struct UserProfilePage {
   @State threads: Array<Thread> = [];
   @State isLoading: boolean = true;
   @State uid: string = '';
+  @State isFollowing: boolean = false;
+  @State isFollowLoading: boolean = false;
 
   async aboutToAppear() {
     const params = router.getParams() as Record<string, string>;
@@ -24,12 +27,31 @@ struct UserProfilePage {
     this.isLoading = true;
     try {
       this.profile = await forumRepository.fetchUserProfile(this.uid);
+      this.isFollowing = this.profile.isFollowing === true;
       const res: MyThreadPage = await forumRepository.userThreads(this.uid);
       this.threads = res.threads;
     } catch (e) {
       console.error(e);
     } finally {
       this.isLoading = false;
+    }
+  }
+
+  async doFollow() {
+    if (!this.profile || !this.profile.formhash) return;
+    this.isFollowLoading = true;
+    try {
+      const ok = await forumRepository.toggleFollow(this.uid, this.profile.formhash, !this.isFollowing);
+      if (ok) {
+        this.isFollowing = !this.isFollowing;
+        promptAction.showToast({ message: this.isFollowing ? '已关注' : '已取消关注' });
+      } else {
+        promptAction.showToast({ message: '操作失败，可能未登录' });
+      }
+    } catch (e) {
+      promptAction.showToast({ message: '网络异常' });
+    } finally {
+      this.isFollowLoading = false;
     }
   }
 
@@ -53,7 +75,15 @@ struct UserProfilePage {
                 Column({ space: 5 }) {
                   Text(this.profile.name || '未知用户').fontSize(20).fontWeight(FontWeight.Bold)
                   Text(this.profile.groupName || '普通会员').fontSize(12).fontColor('#4D6BFE').backgroundColor('#E8F0FE').padding({ left: 6, right: 6, top: 2, bottom: 2 }).borderRadius(4)
-                }.alignItems(HorizontalAlign.Start)
+                }.alignItems(HorizontalAlign.Start).layoutWeight(1)
+                
+                Button(this.isFollowing ? '已关注' : '关注')
+                  .height(32)
+                  .backgroundColor(this.isFollowing ? '#EEEEEE' : '#4D6BFE')
+                  .fontColor(this.isFollowing ? '#666666' : '#FFFFFF')
+                  .fontSize(13)
+                  .enabled(!this.isFollowLoading)
+                  .onClick(() => this.doFollow())
               }.width('100%')
               
               Row() {

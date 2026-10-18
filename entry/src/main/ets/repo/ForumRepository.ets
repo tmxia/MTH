@@ -286,7 +286,15 @@ export class ForumRepository {
     const html = await HttpClient.get(url);
     return ForumParser.parseMyThreads(html, page);
   }
+
+  async toggleFollow(uid: string, formhash: string, follow: boolean): Promise<boolean> {
+    const action = follow ? "add" : "del";
+    const url = `home.php?mod=spacecp&ac=follow&op=${action}&fuid=${uid}&formhash=${formhash}&mobile=2`;
+    const html = await HttpClient.get(url);
+    return html.includes("succeedhandle") || html.includes("关注成功") || html.includes("已取消关注");
+  }
 }
+
 
 
 

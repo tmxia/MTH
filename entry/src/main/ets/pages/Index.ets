@@ -137,7 +137,7 @@ struct HomeTab {
         }.alignItems(HorizontalAlign.Start)
       }.width('100%')
 
-      Text(thread.subject).fontSize(16).fontWeight(FontWeight.Bold).fontColor('#111').maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(thread.subject).fontSize(16).fontWeight(FontWeight.Bold).fontColor(MtfColors.textMainColor).maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
 
       if (thread.imageUrls && thread.imageUrls.length > 0) {
         NetImage({ src: thread.imageUrls[0], imgWidth: '100%', imgHeight: 150, imgRadius: 6 })
@@ -274,10 +274,10 @@ struct ProfileTab {
 
           // 菜单列表
           Column() {
-            Row() { Text('消息通知').fontSize(15); Blank(); Text('>').fontColor(MtfColors.textLight) }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' }).onClick(() => router.pushUrl({ url: 'pages/Notices' }))
-            Row() { Text('我的私信').fontSize(15); Blank(); Text('>').fontColor(MtfColors.textLight) }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' }).onClick(() => router.pushUrl({ url: 'pages/PmList' }))
-            Row() { Text('我的帖子').fontSize(15); Blank(); Text('>').fontColor(MtfColors.textLight) }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' }).onClick(() => router.pushUrl({ url: 'pages/MyPosts' }))
-            Row() { Text('我的收藏').fontSize(15); Blank(); Text('>').fontColor(MtfColors.textLight) }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' }).onClick(() => router.pushUrl({ url: 'pages/MyFavorites' }))
+            Row() { Text('消息通知').fontSize(15); Blank(); Text('>').fontColor(MtfColors.textLight) }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: MtfColors.dividerColor }).onClick(() => router.pushUrl({ url: 'pages/Notices' }))
+            Row() { Text('我的私信').fontSize(15); Blank(); Text('>').fontColor(MtfColors.textLight) }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: MtfColors.dividerColor }).onClick(() => router.pushUrl({ url: 'pages/PmList' }))
+            Row() { Text('我的帖子').fontSize(15); Blank(); Text('>').fontColor(MtfColors.textLight) }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: MtfColors.dividerColor }).onClick(() => router.pushUrl({ url: 'pages/MyPosts' }))
+            Row() { Text('我的收藏').fontSize(15); Blank(); Text('>').fontColor(MtfColors.textLight) }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: MtfColors.dividerColor }).onClick(() => router.pushUrl({ url: 'pages/MyFavorites' }))
             Row() { Text('我的好友').fontSize(15); Blank(); Text('>').fontColor(MtfColors.textLight) }.width('100%').padding(15).onClick(() => router.pushUrl({ url: 'pages/MyFriends' }))
           }.width('100%').backgroundColor(MtfColors.bgWhite).borderRadius(12)
 
@@ -286,7 +286,7 @@ struct ProfileTab {
       } else {
         Column({ space: 20 }) {
           Image($r('app.media.icon')).width(80).height(80).borderRadius(40).backgroundColor('#EEEEEE')
-          Text('您尚未登录').fontSize(16).fontColor('#666')
+          Text('您尚未登录').fontSize(16).fontColor(MtfColors.textSubColor)
           Button('立即登录').width('60%').height(45).backgroundColor(MtfColors.primary).fontColor(MtfColors.bgWhite).onClick(() => router.pushUrl({ url: 'pages/Login' }))
         }.width('100%').height('100%').justifyContent(FlexAlign.Center).margin({ top: -50 })
       }

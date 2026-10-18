@@ -112,7 +112,7 @@ struct ThreadDetail {
           List() {
             ListItem() {
               Column({ space: 8 }) {
-                Text(this.tp.subject || '无标题').fontSize(20).fontWeight(FontWeight.Bold).fontColor('#111')
+                Text(this.tp.subject || '无标题').fontSize(20).fontWeight(FontWeight.Bold).fontColor(MtfColors.textMainColor)
                 Row() {
                   Text(this.tp.forumName || '未知版块').fontSize(12).fontColor(MtfColors.primary)
                   Blank()
@@ -140,13 +140,13 @@ struct ThreadDetail {
 
             Row({ space: 10 }) {
               TextInput({ placeholder: '写点什么...', text: this.replyText })
-                .layoutWeight(1).height(40).backgroundColor('#F0F0F0').borderRadius(20)
+                .layoutWeight(1).height(40).backgroundColor(MtfColors.bgLightColor).borderRadius(20)
                 .onChange((val: string) => this.replyText = val)
               Button('发送').height(40).backgroundColor(MtfColors.primary).fontColor(MtfColors.bgWhite)
                 .enabled(!this.isSending && this.replyText.trim().length > 0)
                 .onClick(() => this.submitReply())
             }.width('100%').padding(10)
-          }.backgroundColor(MtfColors.bgWhite).border({ width: { top: 0.5 }, color: '#EEEEEE' })
+          }.backgroundColor(MtfColors.bgWhite).border({ width: { top: 0.5 }, color: MtfColors.dividerColor })
         }.layoutWeight(1)
       }
     }.width('100%').height('100%')
