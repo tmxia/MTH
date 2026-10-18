@@ -1,5 +1,12 @@
 import { HttpClient } from '../network/HttpClient';
-import { ForumGroup, HomeData, ForumPage, Thread, ThreadPage, LoginResult, UserProfile, CheckInStatus, CheckInResult, NoticePage, ReplyResult, SearchResult, MyThreadPage, FavoritePage, FriendUserPage, NewThreadPageData, NewThreadResult, ImageUpload, PmPage, ChatConversation } from '../models/Models';
+import { 
+  ForumGroup, HomeData, ForumPage, Thread, ThreadPage, 
+  LoginResult, UserProfile, CheckInStatus, CheckInResult, 
+  NoticePage, ReplyResult, SearchResult, MyThreadPage, 
+  FavoritePage, FriendUserPage, NewThreadPageData, 
+  NewThreadResult, ImageUpload, PmPage, ChatConversation, 
+  LikeResult 
+} from '../models/Models';
 import { ForumParser } from '../parser/ForumParser';
 
 export enum ForumSort {
@@ -104,7 +111,6 @@ export class ForumRepository {
     return tp;
   }
 
-  // 采用字符串拼接 body，彻底避开对象字面量检查
   async login(username: string, password: string, questionId: number = 0, answer: string = ""): Promise<LoginResult> {
     const loginUrl = "member.php?mod=logging&action=login&mobile=2";
     const loginPageHtml = await HttpClient.get(loginUrl);
@@ -162,7 +168,6 @@ export class ForumRepository {
     return ForumParser.parseNoticePage(html);
   }
 
-  // 同样用字符串拼接表单
   async reply(tid: string, fid: string, formhash: string, message: string): Promise<ReplyResult> {
     const url = `forum.php?mod=post&action=reply&fid=${fid}&tid=${tid}&extra=&replysubmit=yes&mobile=2`;
     const bodyStr = "formhash=" + encodeURIComponent(formhash) +
@@ -175,34 +180,6 @@ export class ForumRepository {
     return ForumParser.parseReplyResponse(html);
   }
 
-  // 搜索帖子
-  async search(keyword: string, page: number = 1): Promise<SearchResult> {
-    const url = `search.php?mod=forum&srchtxt=${encodeURIComponent(keyword)}&searchsubmit=yes&page=${page}&mobile=2`;
-    const html = await HttpClient.get(url);
-    return ForumParser.parseSearchResult(html);
-  }
-
-  // 我的帖子
-  async myThreads(page: number = 1): Promise<MyThreadPage> {
-    const url = `home.php?mod=space&do=thread&view=me&type=thread&page=${page}&mobile=2`;
-    const html = await HttpClient.get(url);
-    return ForumParser.parseMyThreads(html, page);
-  }
-
-  // 我的收藏
-  async myFavorites(page: number = 1): Promise<FavoritePage> {
-    const url = `home.php?mod=space&do=favorite&view=me&type=all&page=${page}&mobile=2`;
-    const html = await HttpClient.get(url);
-    return ForumParser.parseFavorites(html, page);
-  }
-
-  // 我的好友
-  async myFriends(page: number = 1): Promise<FriendUserPage> {
-    const url = `home.php?mod=space&do=friend&page=${page}&mobile=2`;
-    const html = await HttpClient.get(url);
-    return ForumParser.parseFriends(html, page);
-  }
-
   async fetchNewThreadInit(fid: string): Promise<NewThreadPageData> {
     const url = `forum.php?mod=post&action=newthread&fid=${fid}&mobile=2`;
     const html = await HttpClient.get(url);
@@ -212,12 +189,8 @@ export class ForumRepository {
   async uploadImage(filePath: string, uid: string, hash: string): Promise<ImageUpload | null> {
     const url = "misc.php?mod=swfupload&operation=upload&type=image&inajax=yes&infloat=yes&simple=2";
     const formData: Record<string, string> = { "uid": uid, "hash": hash };
-    
-    // 注意：鸿蒙原生上传回调获取服务器返回内容较复杂，这里先作为上传成功处理
-    // 实际项目中需要通过 request.uploadFile 的回调或临时文件读取服务器返回
     const res: string = await HttpClient.uploadFile(url, filePath, formData);
     if (res === "UPLOAD_SUCCESS") {
-       // 此处需配合真实抓包，由于暂时拿不到服务器返回的 aid 和 path，给默认值
        const img = new ImageUpload();
        img.aid = "0";
        img.path = filePath;
@@ -238,6 +211,36 @@ export class ForumRepository {
     };
     const html = await HttpClient.post(url, bodyStr, headers);
     return ForumParser.parseNewThreadResult(html);
+  }
+
+  async search(keyword: string, page: number = 1): Promise<SearchResult> {
+    const url = `search.php?mod=forum&srchtxt=${encodeURIComponent(keyword)}&searchsubmit=yes&page=${page}&mobile=2`;
+    const html = await HttpClient.get(url);
+    return ForumParser.parseSearchResult(html);
+  }
+
+  async myThreads(page: number = 1): Promise<MyThreadPage> {
+    const url = `home.php?mod=space&do=thread&view=me&type=thread&page=${page}&mobile=2`;
+    const html = await HttpClient.get(url);
+    return ForumParser.parseMyThreads(html, page);
+  }
+
+  async userThreads(uid: string, page: number = 1): Promise<MyThreadPage> {
+    const url = `home.php?mod=space&uid=${uid}&do=thread&view=me&type=thread&page=${page}&mobile=2`;
+    const html = await HttpClient.get(url);
+    return ForumParser.parseMyThreads(html, page);
+  }
+
+  async myFavorites(page: number = 1): Promise<FavoritePage> {
+    const url = `home.php?mod=space&do=favorite&view=me&type=all&page=${page}&mobile=2`;
+    const html = await HttpClient.get(url);
+    return ForumParser.parseFavorites(html, page);
+  }
+
+  async myFriends(page: number = 1): Promise<FriendUserPage> {
+    const url = `home.php?mod=space&do=friend&page=${page}&mobile=2`;
+    const html = await HttpClient.get(url);
+    return ForumParser.parseFriends(html, page);
   }
 
   async fetchPms(): Promise<PmPage> {
@@ -261,39 +264,6 @@ export class ForumRepository {
     return html.includes("发送成功") || html.includes("succeedhandle");
   }
 
-  async toggleLike(tid: string, formhash: string, like: boolean): Promise<boolean> {
-    const url = `forum.php?mod=misc&action=recommend&do=add&tid=${tid}&formhash=${formhash}&mobile=2`;
-    // Discuz 点赞/取消点赞通常也是 GET
-    const html = await HttpClient.get(url);
-    return html.includes("succeedhandle") || html.includes("推荐成功") || html.includes("已取消");
-  }
-
-  async toggleFavorite(tid: string, formhash: string, fav: boolean): Promise<boolean> {
-    const action = fav ? "favorite" : "unfavorite";
-    const url = `home.php?mod=spacecp&ac=favorite&type=thread&id=${tid}&formhash=${formhash}&mobile=2&op=${action}`;
-    const html = await HttpClient.get(url);
-    return html.includes("succeedhandle") || html.includes("收藏成功") || html.includes("取消收藏");
-  }
-
-  async fetchUserProfile(uid: string): Promise<UserProfile> {
-    const url = `home.php?mod=space&uid=${uid}&do=profile&mobile=2`;
-    const html = await HttpClient.get(url);
-    return ForumParser.parseUserProfile(html, uid);
-  }
-
-  async userThreads(uid: string, type: string = "thread", page: number = 1): Promise<MyThreadPage> {
-    const url = `home.php?mod=space&uid=${uid}&do=thread&view=me&type=${type}&page=${page}&mobile=2`;
-    const html = await HttpClient.get(url);
-    return ForumParser.parseMyThreads(html, page);
-  }
-
-  async toggleFollow(uid: string, formhash: string, follow: boolean): Promise<boolean> {
-    const action = follow ? "add" : "del";
-    const url = `home.php?mod=spacecp&ac=follow&op=${action}&fuid=${uid}&formhash=${formhash}&mobile=2`;
-    const html = await HttpClient.get(url);
-    return html.includes("succeedhandle") || html.includes("关注成功") || html.includes("已取消关注");
-  }
-
   async likeThread(tid: string, formhash: string, like: boolean): Promise<LikeResult> {
     const url = `forum.php?mod=misc&action=recommend&do=add&tid=${tid}&formhash=${formhash}&mobile=2`;
     const html = await HttpClient.get(url);
@@ -311,20 +281,6 @@ export class ForumRepository {
     result.message = result.success ? "收藏成功" : "收藏失败";
     return result;
   }
-
-  async userThreads(uid: string, page: number = 1): Promise<MyThreadPage> {
-    const url = `home.php?mod=space&uid=${uid}&do=thread&view=me&type=thread&page=${page}&mobile=2`;
-    const html = await HttpClient.get(url);
-    return ForumParser.parseMyThreads(html, page);
-  }
 }
-
-
-
-
-
-
-
-
 
 export const forumRepository = new ForumRepository();
