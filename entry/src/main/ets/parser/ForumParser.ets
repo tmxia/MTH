@@ -1,4 +1,4 @@
-import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult, UserProfile, CheckInStatus, CheckInResult, Notice, NoticePage, ReplyResult, SearchResult, MyThreadPage, FavoritePage, FavoriteItem, FriendUserPage, FriendUserItem, NewThreadPageData, NewThreadResult, ImageUpload, PmPage, PrivateMessage, ChatConversation, ChatMessage } from '../models/Models';
+import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult, UserProfile, CheckInStatus, CheckInResult, Notice, NoticePage, ReplyResult, SearchResult, MyThreadPage, FavoritePage, FavoriteItem, FriendUserPage, FriendUserItem, NewThreadPageData, NewThreadResult, ImageUpload, PmPage, PrivateMessage, ChatConversation, ChatMessage, RichTextNode } from '../models/Models';
 
 const RE_FID = /forum-(\d+)-/;
 const RE_TID = /thread-(\d+)-/;
@@ -703,6 +703,56 @@ export class ForumParser {
     }
     return conv;
   }
+
+  static parseRichText(html: string): Array<RichTextNode> {
+    const nodes: Array<RichTextNode> = [];
+    if (!html) return nodes;
+
+    // 将 br 和 p 转换为换行符
+    let text = html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n');
+    
+    // 提取所有图片标签
+    const imgRegex = /<img[^>]*src="([^"]+)"[^>]*>/gi;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = imgRegex.exec(text)) !== null) {
+      // 图片前的文本
+      if (match.index > lastIndex) {
+        let textContent = text.substring(lastIndex, match.index).replace(/<[^>]+>/g, '');
+        textContent = ForumParser.stripInvisible(textContent);
+        if (textContent.trim()) {
+          const node = new RichTextNode();
+          node.type = "text";
+          node.content = textContent;
+          nodes.push(node);
+        }
+      }
+      
+      // 图片节点
+      const imgNode = new RichTextNode();
+      imgNode.type = "image";
+      imgNode.content = match[1];
+      nodes.push(imgNode);
+
+      lastIndex = imgRegex.lastIndex;
+    }
+
+    // 剩余的文本
+    if (lastIndex < text.length) {
+      let textContent = text.substring(lastIndex).replace(/<[^>]+>/g, '');
+      textContent = ForumParser.stripInvisible(textContent);
+      if (textContent.trim()) {
+        const node = new RichTextNode();
+        node.type = "text";
+        node.content = textContent;
+        nodes.push(node);
+      }
+    }
+
+    return nodes;
+  }
 }
+
 
 

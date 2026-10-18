@@ -434,3 +434,8 @@ export class NewThreadResult {
   tid: string | null = null;
   message: string | null = null;
 }
+
+export class RichTextNode {
+  type: string = ""; // "text" | "image"
+  content: string = "";
+}

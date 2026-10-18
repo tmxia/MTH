@@ -115,7 +115,7 @@ struct HomeTab {
       Text(thread.subject).fontSize(16).fontWeight(FontWeight.Bold).fontColor('#111').maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
 
       if (thread.imageUrls && thread.imageUrls.length > 0) {
-        Image(thread.imageUrls[0]).width('100%').height(150).objectFit(ImageFit.Cover).borderRadius(6).backgroundColor('#EEEEEE')
+        NetImage({ src: thread.imageUrls[0], width: '100%', height: 150, borderRadius: 6 })
       }
 
       Row({ space: 15 }) {

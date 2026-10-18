@@ -127,5 +127,37 @@ export class HttpClient {
       throw new Error('Upload Failed: ' + JSON.stringify(err));
     }
   }
+
+  static async downloadImage(url: string): Promise<ArrayBuffer> {
+    let httpRequest = http.createHttp();
+    let fullUrl = url.startsWith('http') ? url : HttpClient.baseUrl + url;
+    
+    let headers: Record<string, string> = {
+      'User-Agent': HttpClient.userAgent,
+      'Referer': 'https://bbs.binmt.cc/forum.php',
+      'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8'
+    };
+    
+    let cookie = cookieManager.get();
+    if (cookie) headers['Cookie'] = cookie;
+
+    let options: http.HttpRequestOptions = {
+      method: http.RequestMethod.GET,
+      header: headers,
+      expectDataType: http.HttpDataType.ARRAY_BUFFER,
+      readTimeout: 15000,
+      connectTimeout: 15000
+    };
+
+    try {
+      let response = await httpRequest.request(fullUrl, options);
+      return response.result as ArrayBuffer;
+    } catch (error) {
+      throw new Error('Download Image Failed');
+    } finally {
+      httpRequest.destroy();
+    }
+  }
 }
+
 

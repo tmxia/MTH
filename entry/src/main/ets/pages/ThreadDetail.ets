@@ -1,5 +1,7 @@
 import { forumRepository } from '../repo/ForumRepository';
-import { ThreadPage, Post } from '../models/Models';
+import { ThreadPage, Post, RichTextNode } from '../models/Models';
+import { ForumParser } from '../parser/ForumParser';
+import { NetImage } from '../common/NetImage';
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 
@@ -11,6 +13,7 @@ struct ThreadDetail {
   @State errorMsg: string = '';
   @State replyText: string = '';
   @State isSending: boolean = false;
+  @State parsedRichText: Map<string, Array<RichTextNode>> = new Map();
 
   async aboutToAppear() {
     const params = router.getParams() as Record<string, string>;
@@ -27,6 +30,14 @@ struct ThreadDetail {
     try {
       const data = await forumRepository.threadPage(tid, page);
       this.tp = data;
+      
+      // 预处理所有帖子的富文本节点
+      const newMap = new Map<string, Array<RichTextNode>>();
+      for (const post of data.posts) {
+        newMap.set(post.pid, ForumParser.parseRichText(post.contentHtml));
+      }
+      this.parsedRichText = newMap;
+      
     } catch (e) {
       this.errorMsg = (e as Error).message;
     } finally {
@@ -34,18 +45,35 @@ struct ThreadDetail {
     }
   }
 
+  async submitReply() {
+    if (!this.tp || !this.tp.formhash) return;
+    this.isSending = true;
+    try {
+      const res = await forumRepository.reply(this.tp.tid, this.tp.fid || '0', this.tp.formhash, this.replyText);
+      if (res.success) {
+        promptAction.showToast({ message: '回复成功' });
+        this.replyText = '';
+        await this.loadData(this.tp.tid, this.tp.page);
+      } else {
+        promptAction.showToast({ message: res.message || '回复失败' });
+      }
+    } catch (e) {
+      promptAction.showToast({ message: '网络异常' });
+    } finally {
+      this.isSending = false;
+    }
+  }
+
   build() {
     Column() {
+      // 顶部导航 (主色调 DeepSeek 蓝)
       Row() {
-        Text('< 返回').fontSize(16).fontColor('#333').onClick(() => {
-          router.back();
-        })
+        Text('< 返回').fontSize(16).fontColor('#333').onClick(() => router.back())
         Text('帖子详情').fontSize(18).fontWeight(FontWeight.Bold).layoutWeight(1).textAlign(TextAlign.Center)
         Blank().width(40)
-      }
-      .width('100%').height(50).padding({ left: 16, right: 16 }).backgroundColor('#FFFFFF')
+      }.width('100%').height(50).padding({ left: 16, right: 16 }).backgroundColor('#FFFFFF')
 
-      if (this.isLoading) {
+      if (this.isLoading && !this.tp) {
         LoadingProgress().width(50).height(50).color('#4D6BFE').margin({ top: 100 })
       } else if (this.errorMsg !== '') {
         Text(this.errorMsg).fontSize(16).fontColor(Color.Red).margin({ top: 100 })
@@ -75,47 +103,17 @@ struct ThreadDetail {
           // 底部回复框
           Row({ space: 10 }) {
             TextInput({ placeholder: '写点什么...', text: this.replyText })
-              .layoutWeight(1)
-              .height(40)
-              .backgroundColor('#F0F0F0')
-              .borderRadius(20)
+              .layoutWeight(1).height(40).backgroundColor('#F0F0F0').borderRadius(20)
               .onChange((val: string) => this.replyText = val)
-            
             Button('发送')
-              .height(40)
-              .backgroundColor('#4D6BFE')
-              .fontColor('#FFFFFF')
+              .height(40).backgroundColor('#4D6BFE').fontColor('#FFFFFF')
               .enabled(!this.isSending && this.replyText.trim().length > 0)
               .onClick(() => this.submitReply())
           }
-          .width('100%')
-          .padding(10)
-          .backgroundColor('#FFFFFF')
-          .border({ width: { top: 0.5 }, color: '#EEEEEE' })
-        }
-        .width('100%').layoutWeight(1)
+          .width('100%').padding(10).backgroundColor('#FFFFFF').border({ width: { top: 0.5 }, color: '#EEEEEE' })
+        }.layoutWeight(1)
       }
-    }
-    .width('100%').height('100%')
-  }
-
-  async submitReply() {
-    if (!this.tp || !this.tp.formhash) return;
-    this.isSending = true;
-    try {
-      const res = await forumRepository.reply(this.tp.tid, this.tp.fid || '0', this.tp.formhash, this.replyText);
-      if (res.success) {
-        promptAction.showToast({ message: '回复成功' });
-        this.replyText = '';
-        await this.loadData(this.tp.tid, this.tp.page); // 刷新页面
-      } else {
-        promptAction.showToast({ message: res.message || '回复失败' });
-      }
-    } catch (e) {
-      promptAction.showToast({ message: '网络异常' });
-    } finally {
-      this.isSending = false;
-    }
+    }.width('100%').height('100%')
   }
 
   @Builder
@@ -135,29 +133,21 @@ struct ThreadDetail {
         Text(post.floorLabel || '').fontSize(12).fontColor('#999')
       }.width('100%')
 
-      Text(post.contentHtml || '（暂无内容）').fontSize(15).fontColor('#333').lineHeight(24).copyOption(CopyOptions.LocalDevice)
-
-      // 渲染图片
-      if (post.imageUrls && post.imageUrls.length > 0) {
-        Column({ space: 8 }) {
-          ForEach(post.imageUrls, (url: string) => {
-            Image(url)
-              .width('100%')
-              .objectFit(ImageFit.Contain)
-              .borderRadius(6)
-              .backgroundColor('#F0F0F0')
-          }, (url: string) => url)
+      // 渲染富文本 (图文混排)
+      ForEach(this.parsedRichText.get(post.pid) || [], (node: RichTextNode) => {
+        if (node.type === 'text') {
+          Text(node.content).fontSize(15).fontColor('#333').lineHeight(24).copyOption(CopyOptions.LocalDevice).width('100%')
+        } else if (node.type === 'image') {
+          NetImage({ src: node.content, width: '100%', borderRadius: 6 })
+            .margin({ top: 5, bottom: 5 })
         }
-        .width('100%')
-        .margin({ top: 10 })
-      }
+      }, (node: RichTextNode, index: number) => `${post.pid}-${index}`)
 
       Row() {
         Text('回复').fontSize(12).fontColor('#666')
         Blank()
         Text('点赞').fontSize(12).fontColor('#666')
-      }
-      .width('100%').margin({ top: 10 }).padding({ top: 10 }).border({ width: { top: 0.5 }, color: '#EEEEEE' })
+      }.width('100%').margin({ top: 10 }).padding({ top: 10 }).border({ width: { top: 0.5 }, color: '#EEEEEE' })
     }
     .width('100%').padding(16).backgroundColor('#FFFFFF').margin({ top: 8 })
   }
