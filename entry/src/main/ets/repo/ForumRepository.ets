@@ -1,5 +1,6 @@
 import { HttpClient } from '../network/HttpClient';
 import { ForumGroup, HomeData, ForumPage, Thread } from '../models/Models';
+import { ForumParser } from '../parser/ForumParser';
 
 // ==========================================
 // 1. 枚举和常量
@@ -14,29 +15,7 @@ export enum ForumSort {
 const GUIDE_VIEW_PORTAL = "hot";
 
 // ==========================================
-// 2. 占位解析器 (等后续移植真实 ForumParser)
-// ==========================================
-class ForumParser {
-  static parseForumList(html: string): Array<ForumGroup> {
-    console.info("TODO: 待实现真实的 ForumParser.parseForumList");
-    return [];
-  }
-  static parseHome(html: string): HomeData {
-    console.info("TODO: 待实现真实的 ForumParser.parseHome");
-    return new HomeData();
-  }
-  static parsePortalFeed(html: string): Array<Thread> {
-    return [];
-  }
-  static parseForumPage(html: string, page: number): ForumPage {
-    const fp = new ForumPage();
-    fp.page = page;
-    return fp;
-  }
-}
-
-// ==========================================
-// 3. 业务仓库类
+// 2. 业务仓库类
 // ==========================================
 export class ForumRepository {
   private http: typeof HttpClient;
