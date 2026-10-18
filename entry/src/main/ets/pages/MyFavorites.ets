@@ -1,11 +1,11 @@
 import { forumRepository } from '../repo/ForumRepository';
-import { FavoritePage } from '../models/Models';
+import { FavoritePage, FavoriteItem } from '../models/Models';
 import router from '@ohos.router';
 
 @Entry
 @Component
 struct MyFavorites {
-  @State items: Array<any> = [];
+  @State items: Array<FavoriteItem> = [];
   @State isLoading: boolean = true;
   @State page: number = 1;
   @State hasNext: boolean = true;
@@ -41,17 +41,15 @@ struct MyFavorites {
         Text('暂无数据').fontSize(16).fontColor('#666').margin({ top: 100 })
       } else {
         List({ space: 10 }) {
-          ForEach(this.items, (item: any) => {
+          ForEach(this.items, (item: FavoriteItem) => {
             ListItem() {
-              
-    Column({ space: 8 }) {
-      Text(item.title).fontSize(15).fontWeight(FontWeight.Bold).maxLines(2)
-    }
-    .width('100%').padding(12).backgroundColor('#FFFFFF').borderRadius(8)
-    .onClick(() => router.pushUrl({ url: 'pages/ThreadDetail', params: { tid: item.id } }))
-    
+              Column({ space: 8 }) {
+                Text(item.title).fontSize(15).fontWeight(FontWeight.Bold).maxLines(2)
+              }
+              .width('100%').padding(12).backgroundColor('#FFFFFF').borderRadius(8)
+              .onClick(() => router.pushUrl({ url: 'pages/ThreadDetail', params: { tid: item.id } }))
             }
-          })
+          }, (item: FavoriteItem) => item.id)
         }
         .width('100%').layoutWeight(1).padding(10).backgroundColor('#F5F5F5')
       }

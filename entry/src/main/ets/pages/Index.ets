@@ -67,7 +67,7 @@ struct HomeTab {
       Row() {
         Text('MT论坛').fontSize(20).fontWeight(FontWeight.Bold).fontColor('#333')
         Blank()
-        Text('搜索').fontSize(14).fontColor('#4D6BFE').margin({ right: 15 }).onClick(() => router.pushUrl({ url: 'pages/Search' }))
+        Text('搜索').fontSize(14).fontColor('#4D6BFE').margin({ right: 15 }).onClick(() => router.pushUrl({ url: 'pages/SearchPage' }))
         Text('去登录').fontSize(14).fontColor('#4D6BFE').onClick(() => {
           router.pushUrl({ url: 'pages/Login' });
         })

@@ -4,7 +4,7 @@ import router from '@ohos.router';
 
 @Entry
 @Component
-struct Search {
+struct SearchPage {
   @State keyword: string = '';
   @State threads: Array<Thread> = [];
   @State isLoading: boolean = false;

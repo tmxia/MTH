@@ -1,11 +1,11 @@
 import { forumRepository } from '../repo/ForumRepository';
-import { FriendUserPage } from '../models/Models';
+import { FriendUserPage, FriendUserItem } from '../models/Models';
 import router from '@ohos.router';
 
 @Entry
 @Component
 struct MyFriends {
-  @State items: Array<any> = [];
+  @State items: Array<FriendUserItem> = [];
   @State isLoading: boolean = true;
   @State page: number = 1;
   @State hasNext: boolean = true;
@@ -41,18 +41,16 @@ struct MyFriends {
         Text('暂无数据').fontSize(16).fontColor('#666').margin({ top: 100 })
       } else {
         List({ space: 10 }) {
-          ForEach(this.items, (item: any) => {
+          ForEach(this.items, (item: FriendUserItem) => {
             ListItem() {
-              
-    Row({ space: 10 }) {
-      Image($r('app.media.icon')).width(40).height(40).borderRadius(20)
-      Text(item.username).fontSize(15).fontWeight(FontWeight.Medium)
-      Blank()
-    }
-    .width('100%').padding(12).backgroundColor('#FFFFFF').borderRadius(8)
-    
+              Row({ space: 10 }) {
+                Image($r('app.media.icon')).width(40).height(40).borderRadius(20)
+                Text(item.username).fontSize(15).fontWeight(FontWeight.Medium)
+                Blank()
+              }
+              .width('100%').padding(12).backgroundColor('#FFFFFF').borderRadius(8)
             }
-          })
+          }, (item: FriendUserItem) => item.uid)
         }
         .width('100%').layoutWeight(1).padding(10).backgroundColor('#F5F5F5')
       }

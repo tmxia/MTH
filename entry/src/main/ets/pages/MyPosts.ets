@@ -1,11 +1,11 @@
 import { forumRepository } from '../repo/ForumRepository';
-import { MyThreadPage } from '../models/Models';
+import { MyThreadPage, Thread } from '../models/Models';
 import router from '@ohos.router';
 
 @Entry
 @Component
 struct MyPosts {
-  @State items: Array<any> = [];
+  @State items: Array<Thread> = [];
   @State isLoading: boolean = true;
   @State page: number = 1;
   @State hasNext: boolean = true;
@@ -41,22 +41,20 @@ struct MyPosts {
         Text('暂无数据').fontSize(16).fontColor('#666').margin({ top: 100 })
       } else {
         List({ space: 10 }) {
-          ForEach(this.items, (item: any) => {
+          ForEach(this.items, (item: Thread) => {
             ListItem() {
-              
-    Column({ space: 8 }) {
-      Text(item.subject).fontSize(15).fontWeight(FontWeight.Bold).maxLines(2)
-      Row() {
-        Text(item.forumName || '').fontSize(12).fontColor('#4D6BFE')
-        Blank()
-        Text(`回复: ${item.replyCount || 0}`).fontSize(12).fontColor('#999')
-      }.width('100%')
-    }
-    .width('100%').padding(12).backgroundColor('#FFFFFF').borderRadius(8)
-    .onClick(() => router.pushUrl({ url: 'pages/ThreadDetail', params: { tid: item.tid } }))
-    
+              Column({ space: 8 }) {
+                Text(item.subject).fontSize(15).fontWeight(FontWeight.Bold).maxLines(2)
+                Row() {
+                  Text(item.forumName || '').fontSize(12).fontColor('#4D6BFE')
+                  Blank()
+                  Text(`回复: ${item.replyCount || 0}`).fontSize(12).fontColor('#999')
+                }.width('100%')
+              }
+              .width('100%').padding(12).backgroundColor('#FFFFFF').borderRadius(8)
+              .onClick(() => router.pushUrl({ url: 'pages/ThreadDetail', params: { tid: item.tid } }))
             }
-          })
+          }, (item: Thread) => item.tid)
         }
         .width('100%').layoutWeight(1).padding(10).backgroundColor('#F5F5F5')
       }

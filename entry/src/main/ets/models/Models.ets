@@ -63,6 +63,7 @@ export class Post {
   editedText: string | null = null;
   hasHiddenContent: boolean = false;
   sticky: boolean = false;
+  imageUrls: Array<string> = [];
 }
 
 export class ThreadPage {
