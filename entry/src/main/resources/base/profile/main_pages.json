@@ -11,6 +11,7 @@
     "pages/SearchPage",
     "pages/PostEdit",
     "pages/PmList",
-    "pages/Chat"
+    "pages/Chat",
+    "pages/UserProfilePage"
   ]
 }

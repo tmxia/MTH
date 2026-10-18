@@ -274,7 +274,14 @@ export class ForumRepository {
     const html = await HttpClient.get(url);
     return html.includes("succeedhandle") || html.includes("收藏成功") || html.includes("取消收藏");
   }
+
+  async fetchUserProfile(uid: string): Promise<UserProfile> {
+    const url = `home.php?mod=space&uid=${uid}&do=profile&mobile=2`;
+    const html = await HttpClient.get(url);
+    return ForumParser.parseUserProfile(html, uid);
+  }
 }
+
 
 
 

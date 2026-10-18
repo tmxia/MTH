@@ -157,6 +157,11 @@ struct ThreadDetail {
       Row({ space: 10 }) {
         Image(post.avatarUrl ? post.avatarUrl : $r('app.media.icon'))
           .width(36).height(36).borderRadius(18).backgroundColor('#EEEEEE')
+          .onClick(() => {
+            if (post.authorUid) {
+              router.pushUrl({ url: 'pages/UserProfilePage', params: { uid: post.authorUid } });
+            }
+          })
         Column() {
           Text(post.authorName || '匿名').fontSize(14).fontWeight(FontWeight.Medium)
           Text(post.timeText || '刚刚').fontSize(11).fontColor('#999')
@@ -170,7 +175,7 @@ struct ThreadDetail {
 
       ForEach(this.parsedRichText.get(post.pid) || [], (node: RichTextNode) => {
         if (node.type === 'text') {
-          Text(node.content).fontSize(15).fontColor('#333').lineHeight(24).copyOption(CopyOptions.LocalDevice).width('100%')
+          Text(node.content).fontSize(15).fontColor('#333').fontWeight(node.isBold ? FontWeight.Bold : FontWeight.Normal).lineHeight(24).copyOption(CopyOptions.LocalDevice).width('100%')
         } else if (node.type === 'image') {
           NetImage({ src: node.content, imgWidth: '100%', imgRadius: 6 }).margin({ top: 5, bottom: 5 })
         }
