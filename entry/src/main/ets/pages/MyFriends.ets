@@ -7,8 +7,6 @@ import router from '@ohos.router';
 struct MyFriends {
   @State items: Array<FriendUserItem> = [];
   @State isLoading: boolean = true;
-  @State page: number = 1;
-  @State hasNext: boolean = true;
 
   async aboutToAppear() {
     await this.loadData();
@@ -17,9 +15,8 @@ struct MyFriends {
   async loadData() {
     this.isLoading = true;
     try {
-      const res = await forumRepository.myFriends(this.page);
-      this.items = this.items.concat(res.users);
-      this.hasNext = res.hasNext;
+      const res = await forumRepository.myFriends(1);
+      this.items = res.users;
     } catch (e) {
       console.error(e);
     } finally {
@@ -51,8 +48,7 @@ struct MyFriends {
               .width('100%').padding(12).backgroundColor('#FFFFFF').borderRadius(8)
             }
           }, (item: FriendUserItem) => item.uid)
-        }
-        .width('100%').layoutWeight(1).padding(10).backgroundColor('#F5F5F5')
+        }.width('100%').layoutWeight(1).padding(10).backgroundColor('#F5F5F5')
       }
     }.width('100%').height('100%')
   }

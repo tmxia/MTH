@@ -7,8 +7,6 @@ import router from '@ohos.router';
 struct MyFavorites {
   @State items: Array<FavoriteItem> = [];
   @State isLoading: boolean = true;
-  @State page: number = 1;
-  @State hasNext: boolean = true;
 
   async aboutToAppear() {
     await this.loadData();
@@ -17,9 +15,8 @@ struct MyFavorites {
   async loadData() {
     this.isLoading = true;
     try {
-      const res = await forumRepository.myFavorites(this.page);
-      this.items = this.items.concat(res.items);
-      this.hasNext = res.hasNext;
+      const res = await forumRepository.myFavorites(1);
+      this.items = res.items;
     } catch (e) {
       console.error(e);
     } finally {
@@ -50,8 +47,7 @@ struct MyFavorites {
               .onClick(() => router.pushUrl({ url: 'pages/ThreadDetail', params: { tid: item.id } }))
             }
           }, (item: FavoriteItem) => item.id)
-        }
-        .width('100%').layoutWeight(1).padding(10).backgroundColor('#F5F5F5')
+        }.width('100%').layoutWeight(1).padding(10).backgroundColor('#F5F5F5')
       }
     }.width('100%').height('100%')
   }

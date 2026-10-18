@@ -65,6 +65,7 @@ export class Post {
   sticky: boolean = false;
   imageUrls: Array<string> = [];
   imageUrls: Array<string> = [];
+  imageUrls: Array<string> = [];
 }
 
 export class ThreadPage {

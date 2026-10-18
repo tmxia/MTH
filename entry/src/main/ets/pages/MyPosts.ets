@@ -7,8 +7,6 @@ import router from '@ohos.router';
 struct MyPosts {
   @State items: Array<Thread> = [];
   @State isLoading: boolean = true;
-  @State page: number = 1;
-  @State hasNext: boolean = true;
 
   async aboutToAppear() {
     await this.loadData();
@@ -17,9 +15,8 @@ struct MyPosts {
   async loadData() {
     this.isLoading = true;
     try {
-      const res = await forumRepository.myThreads(this.page);
-      this.items = this.items.concat(res.threads);
-      this.hasNext = res.hasNext;
+      const res = await forumRepository.myThreads(1);
+      this.items = res.threads;
     } catch (e) {
       console.error(e);
     } finally {
@@ -55,8 +52,7 @@ struct MyPosts {
               .onClick(() => router.pushUrl({ url: 'pages/ThreadDetail', params: { tid: item.tid } }))
             }
           }, (item: Thread) => item.tid)
-        }
-        .width('100%').layoutWeight(1).padding(10).backgroundColor('#F5F5F5')
+        }.width('100%').layoutWeight(1).padding(10).backgroundColor('#F5F5F5')
       }
     }.width('100%').height('100%')
   }
