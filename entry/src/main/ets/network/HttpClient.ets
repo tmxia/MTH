@@ -3,7 +3,6 @@ import { cookieManager } from './CookieManager';
 
 export class HttpClient {
   private static baseUrl: string = "https://bbs.binmt.cc/";
-  // 完全对齐安卓原版 ForumMediaClient 中的 UA
   private static userAgent: string = "Mozilla/5.0 (Linux; Android 10; HarmonyOS) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36";
 
   static async request(method: http.RequestMethod, url: string, body?: Record<string, string>, extraHeaders?: Record<string, string>): Promise<string> {
@@ -14,7 +13,7 @@ export class HttpClient {
       'User-Agent': HttpClient.userAgent,
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
       'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-      'Referer': 'https://bbs.binmt.cc/forum.php' // 原版要求完整页面路径
+      'Referer': 'https://bbs.binmt.cc/forum.php'
     };
 
     let cookie = cookieManager.get();
@@ -22,11 +21,10 @@ export class HttpClient {
       headers['Cookie'] = cookie;
     }
 
-    // 替代 Object.assign，手动遍历合并
     if (extraHeaders) {
-      let keys = Object.keys(extraHeaders);
+      let keys: string[] = Object.keys(extraHeaders);
       for (let i = 0; i < keys.length; i++) {
-        let k = keys[i];
+        let k: string = keys[i];
         headers[k] = extraHeaders[k];
       }
     }
@@ -41,10 +39,11 @@ export class HttpClient {
 
     if (method === http.RequestMethod.POST && body) {
       let formData: string[] = [];
-      let bodyKeys = Object.keys(body);
+      let bodyKeys: string[] = Object.keys(body);
       for (let i = 0; i < bodyKeys.length; i++) {
-        let k = bodyKeys[i];
-        let val = body[k];
+        let k: string = bodyKeys[i];
+        // 核心修复：显式声明 val 的类型为 string，消灭 any
+        let val: string = body[k]; 
         formData.push(encodeURIComponent(k) + '=' + encodeURIComponent(val));
       }
       options.extraData = formData.join('&');
@@ -52,17 +51,17 @@ export class HttpClient {
     }
 
     try {
-      let response = await httpRequest.request(fullUrl, options);
+      let response: http.HttpResponse = await httpRequest.request(fullUrl, options);
       
       let setCookie = response.header['set-cookie'];
       if (setCookie) {
-        let newCookieStr = '';
+        let newCookieStr: string = '';
         if (typeof setCookie === 'string') {
           newCookieStr = setCookie;
         } else {
           newCookieStr = (setCookie as string[]).join('; ');
         }
-        let currentCookie = cookieManager.get();
+        let currentCookie: string = cookieManager.get();
         if (!currentCookie) {
           await cookieManager.save(newCookieStr);
         } else {
@@ -71,7 +70,14 @@ export class HttpClient {
       }
       return response.result as string;
     } catch (error) {
-      throw new Error('Http Request Failed: ' + JSON.stringify(error));
+      // 核心修复：处理 catch 里的 any 报错
+      let errMsg: string = 'Unknown Error';
+      if (error instanceof Error) {
+        errMsg = error.message;
+      } else {
+        errMsg = JSON.stringify(error);
+      }
+      throw new Error('Http Request Failed: ' + errMsg);
     } finally {
       httpRequest.destroy();
     }
