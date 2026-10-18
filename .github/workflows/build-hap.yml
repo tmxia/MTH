@@ -21,16 +21,29 @@ jobs:
       - name: Setup OpenHarmony SDK
         uses: ErBWs/setup-ohos@v2
 
-      # 1. 建立官方标准的 signature 目录并放入证书
+      # 1. 采用无死角的“喂饭式”文件布局
       - name: Restore Signing Files
         run: |
+          # 生成证书到根目录
+          echo "${{ secrets.HAP_P12_BASE64 }}" | base64 -d > signature.p12
+          echo "${{ secrets.HAP_P7B_BASE64 }}" | base64 -d > signature.p7b
+          keytool -exportcert -alias "${{ secrets.HAP_KEY_ALIAS }}" -keystore signature.p12 -storepass "${{ secrets.HAP_KEY_PASSWORD }}" -rfc -file signature.cer
+          
+          # 满足 hvigor 对 material 目录的执念，把所有文件复制进去
+          mkdir -p material
+          cp signature.* material/
+          
+          # 防止它找 signature/material
           mkdir -p signature
-          echo "${{ secrets.HAP_P12_BASE64 }}" | base64 -d > signature/signature.p12
-          echo "${{ secrets.HAP_P7B_BASE64 }}" | base64 -d > signature/signature.p7b
-          keytool -exportcert -alias "${{ secrets.HAP_KEY_ALIAS }}" -keystore signature/signature.p12 -storepass "${{ secrets.HAP_KEY_PASSWORD }}" -rfc -file signature/signature.cer
-          ls -la signature/
+          cp signature.* signature/
+          mkdir -p signature/material
+          cp signature.* signature/material/
+          
+          # 打印确认
+          echo "根目录:"; ls -la signature.*
+          echo "material目录:"; ls -la material/
 
-      # 2. 注入官方标准的相对路径配置
+      # 2. 在配置里写相对路径，不带任何前缀
       - name: Configure Signing in build-profile.json5
         run: |
           python3 -c "
@@ -40,13 +53,13 @@ jobs:
               'name': 'default',
               'type': 'HarmonyOS',
               'material': {
-                  'certpath': 'signature/signature.cer',
+                  'certpath': 'signature.cer',
                   'storePassword': '${{ secrets.HAP_KEY_PASSWORD }}',
                   'keyAlias': '${{ secrets.HAP_KEY_ALIAS }}',
                   'keyPassword': '${{ secrets.HAP_KEY_PASSWORD }}',
-                  'profile': 'signature/signature.p7b',
+                  'profile': 'signature.p7b',
                   'signAlg': 'SHA256withECDSA',
-                  'storeFile': 'signature/signature.p12'
+                  'storeFile': 'signature.p12'
               }
           }]
           with open('build-profile.json5', 'w') as f: json.dump(data, f, indent=2)
