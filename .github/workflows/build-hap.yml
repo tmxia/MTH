@@ -21,70 +21,60 @@ jobs:
       - name: Setup OpenHarmony SDK
         uses: ErBWs/setup-ohos@v2
 
-      # 1. 采用无死角的“喂饭式”文件布局
+      # 1. 还原证书文件
       - name: Restore Signing Files
         run: |
-          # 生成证书到根目录
           echo "${{ secrets.HAP_P12_BASE64 }}" | base64 -d > signature.p12
           echo "${{ secrets.HAP_P7B_BASE64 }}" | base64 -d > signature.p7b
           keytool -exportcert -alias "${{ secrets.HAP_KEY_ALIAS }}" -keystore signature.p12 -storepass "${{ secrets.HAP_KEY_PASSWORD }}" -rfc -file signature.cer
-          
-          # 满足 hvigor 对 material 目录的执念，把所有文件复制进去
-          mkdir -p material
-          cp signature.* material/
-          
-          # 防止它找 signature/material
-          mkdir -p signature
-          cp signature.* signature/
-          mkdir -p signature/material
-          cp signature.* signature/material/
-          
-          # 打印确认
-          echo "根目录:"; ls -la signature.*
-          echo "material目录:"; ls -la material/
 
-      # 2. 在配置里写相对路径，不带任何前缀
-      - name: Configure Signing in build-profile.json5
+      # 2. 清空 build-profile.json5 的签名配置，强行让 hvigor 不执行自动签名
+      - name: Disable hvigor auto-sign
         run: |
           python3 -c "
           import json
           with open('build-profile.json5', 'r') as f: data = json.load(f)
-          data['app']['signingConfigs'] = [{
-              'name': 'default',
-              'type': 'HarmonyOS',
-              'material': {
-                  'certpath': 'signature.cer',
-                  'storePassword': '${{ secrets.HAP_KEY_PASSWORD }}',
-                  'keyAlias': '${{ secrets.HAP_KEY_ALIAS }}',
-                  'keyPassword': '${{ secrets.HAP_KEY_PASSWORD }}',
-                  'profile': 'signature.p7b',
-                  'signAlg': 'SHA256withECDSA',
-                  'storeFile': 'signature.p12'
-              }
-          }]
+          data['app']['signingConfigs'] = []
           with open('build-profile.json5', 'w') as f: json.dump(data, f, indent=2)
           "
 
-      # 3. 编译打包
+      # 3. 编译生成未签名包 (此时会生成 entry-default-unsigned.hap)
       - name: Build HAP
         run: |
           hvigorw clean --no-daemon
           hvigorw assembleHap --mode module -p product=default --no-parallel --no-daemon
 
-      # 4. 自动发布到 Releases
+      # 4. 使用官方签名工具手动签名
+      - name: Sign HAP manually
+        run: |
+          # 查找签名工具位置
+          SIGN_TOOL=$(find $HOS_SDK_HOME -name "hap-sign-tool.jar" | head -n 1)
+          echo "Found sign tool: $SIGN_TOOL"
+          
+          # 找到未签名的 hap 文件
+          UNSIGNED_HAP=$(find entry/build/default/outputs/default -name "*.hap" | grep -v "signed" | head -n 1)
+          if [ -z "$UNSIGNED_HAP" ]; then
+            UNSIGNED_HAP=$(find entry/build/default/outputs/default -name "*.hap" | head -n 1)
+          fi
+          echo "Unsigned HAP: $UNSIGNED_HAP"
+          
+          # 执行官方签名
+          java -jar "$SIGN_TOOL" sign-app             -keyAlias "${{ secrets.HAP_KEY_ALIAS }}"             -signAlg "SHA256withECDSA"             -mode "localSign"             -appCertFile "signature.cer"             -profileFile "signature.p7b"             -inFile "$UNSIGNED_HAP"             -keystoreFile "signature.p12"             -outFile "entry/build/default/outputs/default/entry-default-signed.hap"             -keyPwd "${{ secrets.HAP_KEY_PASSWORD }}"             -keystorePwd "${{ secrets.HAP_KEY_PASSWORD }}"
+
+      # 5. 自动发布到 Releases
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: MTH Release v1.0.${{ github.run_number }}
           body: "Auto-built and signed by GitHub Actions."
-          files: entry/build/default/outputs/default/*.hap
+          files: entry/build/default/outputs/default/entry-default-signed.hap
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 5. 保留 Actions 产物
+      # 6. 保留 Actions 产物
       - name: Upload HAP Artifact
         uses: actions/upload-artifact@v4
         with:
           name: MTH-Signed-HAP
-          path: entry/build/default/outputs/default/*.hap
+          path: entry/build/default/outputs/default/entry-default-signed.hap
