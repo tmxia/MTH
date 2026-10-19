@@ -271,10 +271,78 @@ export class ForumRepository {
 
   async fetchNewThreadInit(fid?: string): Promise<NewThreadPageData> { return new NewThreadPageData(); }
   async uploadImage(uri: string, hash?: string, uid?: string): Promise<ImageUpload> { return new ImageUpload(); }
-  async newThread(fid: string, subject: string, message: string, typeId?: string, formhash?: string): Promise<NewThreadResult> { return new NewThreadResult(); }
+  async newThread(fid: string, subject: string, message: string, typeId?: string, formhash?: string): Promise<NewThreadResult> {
+    const result = new NewThreadResult();
+    try {
+      const fh = (formhash && formhash.length > 0) ? formhash : await this.fetchFormhash();
+      if (!fh) {
+        result.success = false;
+        result.message = '获取操作凭据失败，请重试';
+        return result;
+      }
+      const url = '/forum.php?mod=post&action=newthread&fid=' + fid + '&extra=&topicsubmit=yes&mobile=2&handlekey=postform&inajax=1';
+      const body: Record<string, string> = {
+        formhash: fh,
+        subject: subject,
+        message: message,
+        topicsubmit: 'yes'
+      };
+      if (typeId && typeId !== '0') {
+        body['typeid'] = typeId;
+      }
+      const res = await HttpClient.post(url, body);
+      const ok = res.indexOf('succeedhandle') >= 0 ||
+                 res.indexOf('发布成功') >= 0 ||
+                 res.indexOf('thread-') >= 0 ||
+                 res.indexOf('tid=') >= 0 ||
+                 res.indexOf('需要审核') >= 0;
+      result.success = ok;
+      result.message = ok ? '发布成功' : '发布失败，请检查内容或稍后重试';
+      const tidMatch = /tid=(\d+)/.exec(res);
+      if (tidMatch) {
+        result.tid = tidMatch[1];
+      }
+    } catch (e) {
+      result.success = false;
+      result.message = '发布失败：' + (e as Error).message;
+    }
+    return result;
+  }
   async fetchPms(page?: number): Promise<PmPage> { return new PmPage(); }
   async fetchChat(touid: string): Promise<ChatConversation> { return new ChatConversation(); }
-  async sendPm(touid: string, message: string, formhash?: string): Promise<ReplyResult> { return new ReplyResult(); }
+  async sendPm(touid: string, message: string, formhash?: string): Promise<ReplyResult> {
+    const result = new ReplyResult();
+    try {
+      if (!message || message.trim().length === 0) {
+        result.success = false;
+        result.message = '消息内容不能为空';
+        return result;
+      }
+      const fh = (formhash && formhash.length > 0) ? formhash : await this.fetchFormhash();
+      if (!fh) {
+        result.success = false;
+        result.message = '获取操作凭据失败，请重试';
+        return result;
+      }
+      const url = '/home.php?mod=spacecp&ac=pm&op=send&pmid=0&daterange=2&pmsubmit=yes&inajax=1&mobile=2';
+      const body: Record<string, string> = {
+        formhash: fh,
+        touid: touid,
+        message: message,
+        pmsubmit: 'yes'
+      };
+      const res = await HttpClient.post(url, body);
+      const ok = res.indexOf('succeedhandle') >= 0 ||
+                 res.indexOf('发送成功') >= 0 ||
+                 res.indexOf('消息已发送') >= 0;
+      result.success = ok;
+      result.message = ok ? '发送成功' : '发送失败，请稍后重试';
+    } catch (e) {
+      result.success = false;
+      result.message = '发送失败：' + (e as Error).message;
+    }
+    return result;
+  }
 
   // ===== @ 用户相关 =====
 
