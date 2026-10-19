@@ -7,7 +7,7 @@ import {
   FavoritePage, FriendUserPage, MyThreadPage, NewThreadPageData, 
   NewThreadResult, EditPostPageData, EditPostResult, ImageUpload,
   ReplyResult, LikeResult
-, AtUser, FollowUserPage, SmileyPack} from '../models/Models';
+, AtUser, FollowUserPage, SmileyPack, LikeUser} from '../models/Models';
 import { BusinessError } from '@ohos.base';
 
 
@@ -80,6 +80,26 @@ interface LoginPostBody {
   seccodeverify?: string;
 }
 
+
+
+interface IAddFriendBody {
+  formhash: string;
+  uid: string;
+  addsubmit: string;
+  handlesubmit: string;
+}
+interface ISetFollowRemarkBody {
+  formhash: string;
+  fuid: string;
+  remark: string;
+  followremarksubmit: string;
+}
+interface IRewardAuthorBody {
+  formhash: string;
+  tid: string;
+  amount: string;
+  rewardsubmit: string;
+}
 
 export enum ForumSort {
   LATEST = "最新",
@@ -736,6 +756,230 @@ export class ForumRepository {
       return ForumParser.parseSmileyPacks(js);
     } catch (e) {
       return [];
+    }
+  }
+
+
+  // ===== 版块关注 =====
+
+  async followForum(fid: string, follow: boolean): Promise<boolean> {
+    try {
+      const fh = await this.fetchFormhash();
+      if (!fh) return false;
+      const op = follow ? 'add' : 'del';
+      const url = '/home.php?mod=spacecp&ac=follow&op=' + op + '&fid=' + fid +
+        '&formhash=' + fh + '&handlekey=followmod&inajax=1&mobile=2';
+      const res = await HttpClient.get(url);
+      return res.indexOf('succeedhandle') >= 0 ||
+             res.indexOf('关注成功') >= 0 ||
+             res.indexOf('已关注') >= 0 ||
+             res.indexOf('取消关注') >= 0 ||
+             res.indexOf('操作成功') >= 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async followTopic(tid: string, follow: boolean): Promise<boolean> {
+    try {
+      const fh = await this.fetchFormhash();
+      if (!fh) return false;
+      const op = follow ? 'add' : 'del';
+      const url = '/home.php?mod=spacecp&ac=favorite&type=thread&op=' + op +
+        '&id=' + tid + '&formhash=' + fh + '&handlekey=followmod&inajax=1&mobile=2';
+      const res = await HttpClient.get(url);
+      return res.indexOf('succeedhandle') >= 0 ||
+             res.indexOf('已收藏') >= 0 ||
+             res.indexOf('已取消') >= 0 ||
+             res.indexOf('操作成功') >= 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async fetchFollowedForumFids(): Promise<Array<string>> {
+    const out: Array<string> = [];
+    try {
+      const html = await HttpClient.get('/home.php?mod=space&do=follow&view=forum&mobile=2');
+      const re = /forum(?:&amp;|&)fid=(\d+)/g;
+      let m: RegExpExecArray | null = re.exec(html);
+      while (m !== null) {
+        if (out.indexOf(m[1]) < 0) out.push(m[1]);
+        m = re.exec(html);
+      }
+    } catch (e) {}
+    return out;
+  }
+
+  // ===== 消息已读 =====
+
+  async pollNoticeView(): Promise<boolean> {
+    try {
+      const html = await HttpClient.get('/home.php?mod=space&do=notice&view=mypost&isread=1&mobile=2');
+      return html.length > 0 && html.indexOf('登录') < 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ===== 点赞用户列表 =====
+
+  async likeUsers(tid: string): Promise<Array<LikeUser>> {
+    const out: Array<LikeUser> = [];
+    try {
+      const html = await HttpClient.get('/forum.php?mod=misc&action=recommend&do=list&tid=' + tid + '&mobile=2');
+      const re = /space(?:&amp;|&)uid=(\d+)[\s\S]{0,500}?<\/(?:li|dl|div)>/g;
+      let m: RegExpExecArray | null = re.exec(html);
+      while (m !== null) {
+        const block = m[0];
+        const u = new LikeUser();
+        u.uid = m[1];
+        const nm = /<strong[^>]*>([^<]+)<\/strong>/.exec(block);
+        if (nm) u.name = (nm[1] || '').trim();
+        const av = /<img[^>]+src=["']([^"']+)["']/.exec(block);
+        if (av) {
+          let url = av[1];
+          if (url.indexOf('//') === 0) url = 'https:' + url;
+          u.avatarUrl = url;
+        }
+        if (u.name) out.push(u);
+        m = re.exec(html);
+      }
+    } catch (e) {}
+    return out;
+  }
+
+  // ===== 搜索下一页 =====
+
+  async searchNext(nextUrl: string): Promise<SearchResult> {
+    try {
+      let path = nextUrl;
+      if (path.startsWith('http')) {
+        const idx = path.indexOf('/', 8);
+        if (idx > 0) path = path.substring(idx);
+      }
+      const html = await HttpClient.get(path);
+      return ForumParser.parseSearch(html, 1);
+    } catch (e) {
+      return new SearchResult();
+    }
+  }
+
+  // ===== 加好友 =====
+
+  async addFriend(uid: string, formhash: string): Promise<boolean> {
+    try {
+      const fh = (formhash && formhash.length > 0) ? formhash : await this.fetchFormhash();
+      if (!fh) return false;
+      const url = '/home.php?mod=spacecp&ac=friend&op=add&uid=' + uid +
+        '&formhash=' + fh + '&inajax=1&mobile=2';
+      const body: IAddFriendBody = {
+        formhash: fh,
+        uid: uid,
+        addsubmit: 'true',
+        handlesubmit: 'true'
+      };
+      const res = await HttpClient.post(url, body);
+      return res.indexOf('succeedhandle') >= 0 ||
+             res.indexOf('好友申请') >= 0 ||
+             res.indexOf('已发送') >= 0 ||
+             res.indexOf('操作成功') >= 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ===== 设置关注备注 =====
+
+  async setFollowRemark(uid: string, remark: string): Promise<boolean> {
+    try {
+      const fh = await this.fetchFormhash();
+      if (!fh) return false;
+      const url = '/home.php?mod=spacecp&ac=follow&op=remark&fuid=' + uid +
+        '&formhash=' + fh + '&inajax=1&mobile=2';
+      const body: ISetFollowRemarkBody = {
+        formhash: fh,
+        fuid: uid,
+        remark: remark,
+        followremarksubmit: 'true'
+      };
+      const res = await HttpClient.post(url, body);
+      return res.indexOf('succeedhandle') >= 0 ||
+             res.indexOf('操作成功') >= 0 ||
+             res.indexOf('已保存') >= 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ===== 版块今日帖子统计 =====
+
+  async fetchForumTodayPosts(): Promise<Map<string, number>> {
+    const out: Map<string, number> = new Map();
+    try {
+      const ts = Date.now();
+      const html = await HttpClient.get('/forum.php?forumlist=1&mobile=2&_ts=' + ts);
+      // 抓形如 "版块名 (123)" 或 "今日: 123" 格式的帖子数
+      const re = /forum(?:&amp;|&)fid=(\d+)[\s\S]{0,300}?今日[:：]\s*(\d+)/g;
+      let m: RegExpExecArray | null = re.exec(html);
+      while (m !== null) {
+        out.set(m[1], parseInt(m[2]) || 0);
+        m = re.exec(html);
+      }
+    } catch (e) {}
+    return out;
+  }
+
+  // ===== 打赏楼主 =====
+
+  async rewardAuthor(tid: string, amount: number): Promise<boolean> {
+    try {
+      const fh = await this.fetchFormhash();
+      if (!fh) return false;
+      const url = '/home.php?mod=spacecp&ac=reward&tid=' + tid +
+        '&formhash=' + fh + '&inajax=1&mobile=2';
+      const body: IRewardAuthorBody = {
+        formhash: fh,
+        tid: tid,
+        amount: String(amount),
+        rewardsubmit: 'true'
+      };
+      const res = await HttpClient.post(url, body);
+      return res.indexOf('succeedhandle') >= 0 ||
+             res.indexOf('打赏成功') >= 0 ||
+             res.indexOf('积分不足') < 0 && res.indexOf('操作成功') >= 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ===== 删除附件 =====
+
+  async deleteAttach(aid: string): Promise<boolean> {
+    try {
+      const fh = await this.fetchFormhash();
+      if (!fh) return false;
+      const url = '/misc.php?mod=attach&action=delete&aid=' + aid +
+        '&formhash=' + fh + '&inajax=1&mobile=2';
+      const res = await HttpClient.get(url);
+      return res.indexOf('succeedhandle') >= 0 ||
+             res.indexOf('删除成功') >= 0 ||
+             res.indexOf('操作成功') >= 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ===== 用户详情 =====
+
+  async userProfile(uid: string): Promise<UserProfile> {
+    try {
+      const html = await HttpClient.get('/home.php?mod=space&uid=' + uid + '&do=profile&mobile=2');
+      return ForumParser.parseUserProfile(html, uid);
+    } catch (e) {
+      const empty = new UserProfile();
+      empty.uid = uid;
+      return empty;
     }
   }
 

@@ -1,4 +1,4 @@
-import { Thread, ThreadPage, Post, RichTextNode, ActionState, ForumGroup, ForumPage , FollowUserItem, FollowUserPage, NewThreadPageData, ThreadType, PmPage, PrivateMessage, ChatConversation, ChatMessage, ImageUpload, EditPostPageData, Smiley, SmileyPack} from '../models/Models';
+import { Thread, ThreadPage, Post, RichTextNode, ActionState, ForumGroup, ForumPage , FollowUserItem, FollowUserPage, NewThreadPageData, ThreadType, PmPage, PrivateMessage, ChatConversation, ChatMessage, ImageUpload, EditPostPageData, Smiley, SmileyPack, SearchResult, UserProfile} from '../models/Models';
 
 import { AtUser } from '../models/Models';
 export class ForumParser {
@@ -528,6 +528,52 @@ export class ForumParser {
     });
 
     return packs;
+  }
+
+
+  static parseSearch(html: string, page: number): SearchResult {
+    const out = new SearchResult();
+    out.threads = [];
+    out.nextUrl = null;
+    if (!html) return out;
+    const blockRe = /thread-(\d+)[\s\S]{0,800}?<\/(?:li|dl|div)>/g;
+    let m: RegExpExecArray | null = blockRe.exec(html);
+    while (m !== null) {
+      const block = m[0];
+      const t = new Thread();
+      t.tid = m[1];
+      const ttl = /<strong[^>]*>([^<]+)<\/strong>/.exec(block);
+      if (ttl) t.subject = (ttl[1] || '').trim();
+      const au = /space(?:&amp;|&)uid=(\d+)/.exec(block);
+      if (au) t.authorUid = au[1];
+      const an = /<span[^>]*class="[^"]*by[^"]*"[^>]*>([^<]+)<\/span>/.exec(block);
+      if (an) t.authorName = (an[1] || '').trim();
+      out.threads.push(t);
+      m = blockRe.exec(html);
+    }
+    // hasNext 由 nextUrl 自动推导，无需手动赋值
+    const nx = /href="([^"]*search[^"]*page=\d+[^"]*)"/.exec(html);
+    if (nx) out.nextUrl = nx[1];
+    return out;
+  }
+
+  static parseUserProfile(html: string, uid: string): UserProfile {
+    const out = new UserProfile();
+    out.uid = uid;
+    if (!html) return out;
+    const nm = /<title>([^<]+)<\/title>/.exec(html);
+    if (nm) {
+      let n = (nm[1] || '').trim();
+      n = n.replace(/ - [^-]+$/, '');
+      out.name = n;
+    }
+    const av = /<img[^>]+class="[^"]*avatar[^"]*"[^>]+src=["']([^"']+)["']/.exec(html);
+    if (av) {
+      let u = av[1];
+      if (u.indexOf('//') === 0) u = 'https:' + u;
+      out.avatarUrl = u;
+    }
+    return out;
   }
 
 }
