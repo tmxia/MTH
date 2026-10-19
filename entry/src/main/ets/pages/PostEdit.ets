@@ -79,7 +79,7 @@ struct PostEdit {
       if (res.photoUris.length > 0) {
         this.isUploading = true;
         let img = await forumRepository.uploadImage(res.photoUris[0], this.initData.uploadUid || '', this.initData.uploadHash);
-        if (img) {
+        if (img && img.aid) {
           this.content += `\n[attach]${img.aid}[/attach]\n`;
           promptAction.showToast({ message: '图片已插入' });
         } else {
