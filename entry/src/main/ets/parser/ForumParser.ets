@@ -20,69 +20,15 @@ export class ForumParser {
     return match ? match[1] : null;
   }
 
-  // 辅助：从文本提取数字
   static numberFromText(text: string): number | null {
-    let match = text.match(/(\d+)/);
+    let match = text.match(/(\\d+)/);
     return match ? parseInt(match[1]) : null;
   }
 
-  // 解析板块列表 (之前已实现，保持不变)
   static parseForumList(html: string): ForumGroup[] { return []; }
-
-  // 解析帖子列表 (之前已实现，保持不变)
+  
   static parseForumPage(html: string, page: number): ForumPage {
     return new ForumPage();
-  }
-
-  // ------------------ 核心：解析帖子详情页 ------------------
-
-      static parseRichText(html: string): Array<RichTextNode> {
-    let nodes: Array<RichTextNode> = [];
-    if (!html) return nodes;
-
-    // 简易正则匹配图片，将其余部分作为文本
-    let imgRegex = /<img[^>]*src=["']([^"']+)["'][^>]*>/gi;
-    let lastIndex = 0;
-    let match;
-
-    while ((match = imgRegex.exec(html)) !== null) {
-      let textBefore = html.substring(lastIndex, match.index);
-      if (textBefore.trim()) {
-        nodes.push(this.createTextNode(textBefore));
-      }
-      
-      let imgNode = new RichTextNode();
-      imgNode.type = 'image';
-      imgNode.src = match[1];
-      nodes.push(imgNode);
-
-      lastIndex = imgRegex.lastIndex;
-    }
-
-    let textAfter = html.substring(lastIndex);
-    if (textAfter.trim()) {
-      nodes.push(this.createTextNode(textAfter));
-    }
-
-    return nodes;
-  }
-
-  static createTextNode(html: string): RichTextNode {
-    // 轻量级降级：将 <br> 和块级标签替换为换行，然后剥离其他标签
-    let text = html.replace(/<br\s*\/?>/gi, '\n')
-                   .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
-                   .replace(/<[^>]+>/g, '')
-                   .replace(/&nbsp;/g, ' ')
-                   .replace(/&amp;/g, '&')
-                   .replace(/&lt;/g, '<')
-                   .replace(/&gt;/g, '>')
-                   .replace(/\n{3,}/g, '\n\n');
-    let node = new RichTextNode();
-    node.type = 'text';
-    node.content = text.trim();
-    return node;
-  }
-    return nodes;
   }
 
   static parseThreadPage(html: string, page: number): ThreadPage {
@@ -90,54 +36,53 @@ export class ForumParser {
     threadPage.page = page;
     threadPage.posts = [];
 
-    // 1. 提取标题与 TID
-    let titleMatch = ForumParser.extractFirstMatch(html, /<title>(.*?)<\/title>/i);
-    threadPage.subject = titleMatch ? titleMatch.replace('- MT论坛', '').trim() : "";
+    let titleMatch = this.extractFirstMatch(html, /<title>(.*?)<\\/title>/i);
+    if (titleMatch) {
+      threadPage.subject = titleMatch.replace('- MT论坛', '').trim();
+    }
     
-    let tidMatch = ForumParser.extractFirstMatch(html, /thread-(\d+)/);
-    threadPage.tid = tidMatch || "";
+    let tidMatch = this.extractFirstMatch(html, /thread-(\\d+)/);
+    if (tidMatch) {
+      threadPage.tid = tidMatch;
+    }
 
-    // 2. 提取 formhash
-    threadPage.formhash = ForumParser.extractFirstMatch(html, /formhash["']?\s+value=["']([0-9a-fA-F]+)/i);
+    threadPage.formhash = this.extractFirstMatch(html, /formhash["']?\\s+value=["']([0-9a-fA-F]+)/i);
 
-    // 3. 提取作者 ID、总回复、点赞、收藏
-    threadPage.opUid = ForumParser.extractFirstMatch(html, /authorid\s*=\s*['"](\d+)['"]/i);
-    
-    let totalRepliesMatch = ForumParser.extractFirstMatch(html, /<div class="comiis_pltit">[\s\S]*?<h2>.*?<span>(\d+)<\/span>/i);
-    threadPage.totalReplies = totalRepliesMatch ? parseInt(totalRepliesMatch) : null;
+    let authorIdMatch = this.extractFirstMatch(html, /authorid\\s*=\\s*['"](\\d+)['"]/i);
+    if (authorIdMatch) {
+      threadPage.opUid = authorIdMatch;
+    }
 
-    let likeMatch = ForumParser.extractFirstMatch(html, /<em class="comiis_recommend_num">(.*?)<\/em>/i);
-    threadPage.likeCount = likeMatch ? ForumParser.numberFromText(likeMatch) : null;
+    let totalRepliesMatch = this.extractFirstMatch(html, /<div class="comiis_pltit">[\\s\\S]*?<h2>.*?<span>(\\d+)<\\/span>/i);
+    if (totalRepliesMatch) threadPage.totalReplies = parseInt(totalRepliesMatch);
 
-    let favMatch = ForumParser.extractFirstMatch(html, /<span class="comiis_favorite_a_num">(\d+)<\/span>/i);
-    threadPage.favoriteCount = favMatch ? parseInt(favMatch) : null;
+    let likeMatch = this.extractFirstMatch(html, /<em class="comiis_recommend_num">(.*?)<\\/em>/i);
+    if (likeMatch) threadPage.likeCount = this.numberFromText(likeMatch);
 
-    // 4. 提取回复表单 Action
-    threadPage.replyUrl = ForumParser.extractFirstMatch(html, /<form[^>]*id="fastpostform"[^>]*action="([^"]+)"/i);
+    let favMatch = this.extractFirstMatch(html, /<span class="comiis_favorite_a_num">(\\d+)<\\/span>/i);
+    if (favMatch) threadPage.favoriteCount = parseInt(favMatch);
 
-    // 5. 状态检测
-    let actionState = ForumParser.parseActionState(html);
-    threadPage.isLiked = actionState.liked;
-    threadPage.likedStateKnown = actionState.likedKnown;
-    threadPage.isFavorited = actionState.favorited;
-    threadPage.favoritedStateKnown = actionState.favoritedKnown;
+    threadPage.replyUrl = this.extractFirstMatch(html, /<form[^>]*id="fastpostform"[^>]*action="([^"]+)"/i);
 
-    let followState = ForumParser.parseFollowState(html);
-    threadPage.isFollowingOp = followState[0];
-    threadPage.followingStateKnown = followState[1];
+    let action = this.parseActionState(html);
+    threadPage.isLiked = action.liked;
+    threadPage.likedStateKnown = action.likedKnown;
+    threadPage.isFavorited = action.favorited;
+    threadPage.favoritedStateKnown = action.favoritedKnown;
 
-    // 6. 解析每一层楼
-    // 使用 split 切割出所有的 div.comiis_postli
+    let follow = this.parseFollowState(html);
+    threadPage.isFollowingOp = follow[0];
+    threadPage.followingStateKnown = follow[1];
+
     const parts = html.split('<div class="comiis_postli"');
     for (let i = 1; i < parts.length; i++) {
       let liHtml = parts[i];
-      // 只取到当前 div 结束，简化处理，截取到下一个楼层前
       let nextDivIndex = liHtml.indexOf('<div class="comiis_postli"');
       if (nextDivIndex !== -1) {
         liHtml = liHtml.substring(0, nextDivIndex);
       }
 
-      let post = ForumParser.parsePost(liHtml, threadPage.opUid);
+      let post = this.parsePost(liHtml, threadPage.opUid);
       if (post) {
         threadPage.posts.push(post);
       }
@@ -149,43 +94,38 @@ export class ForumParser {
   static parsePost(liHtml: string, opUid: string | null): Post | null {
     let post = new Post();
     
-    // 提取 pid
-    let pidMatch = ForumParser.extractFirstMatch(liHtml, /id="pid(\d+)"/i);
+    let pidMatch = this.extractFirstMatch(liHtml, /id="pid(\\d+)"/i);
     if (!pidMatch) return null;
     post.pid = pidMatch;
 
-    // 提取作者信息
-    let authorMatch = ForumParser.extractFirstMatch(liHtml, /<a[^>]*class="[^"]*xw1[^"]*"[^>]*>(.*?)<\/a>/i) || ForumParser.extractFirstMatch(liHtml, /<div class="comiis_postli_topv1">[\s\S]*?<a[^>]*>(.*?)<\/a>/i);
-    post.authorName = authorMatch ? ForumParser.stripHtmlTags(authorMatch) : "匿名";
+    let authorMatch = this.extractFirstMatch(liHtml, /<a[^>]*class="[^"]*xw1[^"]*"[^>]*>(.*?)<\\/a>/i) || this.extractFirstMatch(liHtml, /<div class="comiis_postli_topv1">[\\s\\S]*?<a[^>]*>(.*?)<\\/a>/i);
+    if (authorMatch) post.authorName = this.stripHtmlTags(authorMatch);
 
-    let uidMatch = ForumParser.extractFirstMatch(liHtml, /href="[^"]*uid=(\d+)[^"]*"/i);
-    post.authorUid = uidMatch;
+    let uidMatch = this.extractFirstMatch(liHtml, /href="[^"]*uid=(\\d+)[^"]*"/i);
+    if (uidMatch) post.authorUid = uidMatch;
 
-    let avatarMatch = ForumParser.extractFirstMatch(liHtml, /<img[^>]*src="([^"]+)"[^>]*class="[^"]*avatar[^"]*"/i) || ForumParser.extractFirstMatch(liHtml, /<div class="avatar">[\s\S]*?<img[^>]*src="([^"]+)"/i);
-    post.avatarUrl = avatarMatch;
+    let avatarMatch = this.extractFirstMatch(liHtml, /<img[^>]*src="([^"]+)"[^>]*class="[^"]*avatar[^"]*"/i) || this.extractFirstMatch(liHtml, /<div class="avatar">[\\s\\S]*?<img[^>]*src="([^"]+)"/i);
+    if (avatarMatch) post.avatarUrl = avatarMatch;
 
-    // 提取时间
-    let timeMatch = ForumParser.extractFirstMatch(liHtml, /<span[^>]*title="([^"]+)"[^>]*>.*?发表于/i);
-    post.timeText = timeMatch;
+    let timeMatch = this.extractFirstMatch(liHtml, /<span[^>]*title="([^"]+)"[^>]*>.*?发表于/i);
+    if (timeMatch) post.timeText = timeMatch;
 
-    // 提取楼层文本
-    let floorTextMatch = ForumParser.extractFirstMatch(liHtml, /<span class="f_d y">(.*?)<\/span>/i);
+    let floorTextMatch = this.extractFirstMatch(liHtml, /<span class="f_d y">(.*?)<\\/span>/i);
     if (floorTextMatch) {
-      post.floorLabel = ForumParser.stripHtmlTags(floorTextMatch);
-      let numMatch = post.floorLabel.match(/^(\d+)/);
-      post.floor = numMatch ? parseInt(numMatch[1]) : null;
+      post.floorLabel = this.stripHtmlTags(floorTextMatch);
+      let numMatch = post.floorLabel.match(/^(\\d+)/);
+      if (numMatch) {
+        post.floor = parseInt(numMatch[1]);
+      }
     }
 
-    // 判断楼主
     if (opUid && post.authorUid === opUid) {
       post.isOp = true;
     }
 
-    // 提取正文内容
-    let contentMatch = ForumParser.extractFirstMatch(liHtml, /<td[^>]*class="[^"]*t_f[^"]*"[^>]*>([\s\S]*?)<\/td>/i) || ForumParser.extractFirstMatch(liHtml, /<div class="comiis_postmessage">([\s\S]*?)<\/div>/i);
+    let contentMatch = this.extractFirstMatch(liHtml, /<td[^>]*class="[^"]*t_f[^"]*"[^>]*>([\\s\\S]*?)<\\/td>/i) || this.extractFirstMatch(liHtml, /<div class="comiis_postmessage">([\\s\\S]*?)<\\/div>/i);
     if (contentMatch) {
       post.contentHtml = contentMatch.trim();
-      // 检查是否包含隐藏内容提示
       if (post.contentHtml.includes('回复可见') || post.contentHtml.includes('隐藏内容') || post.contentHtml.includes('查看本帖隐藏内容')) {
         post.hasHiddenContent = true;
       }
@@ -198,14 +138,12 @@ export class ForumParser {
 
   static parseActionState(html: string): ActionState {
     let res = new ActionState();
-    // 检查推荐/点赞状态
-    let recommendMatch = ForumParser.extractFirstMatch(html, /<a[^>]*class="([^"]*comiis_recommend[^"]*)"[^>]*>/i);
+    let recommendMatch = this.extractFirstMatch(html, /<a[^>]*class="([^"]*comiis_recommend[^"]*)"[^>]*>/i);
     if (recommendMatch) {
       res.likedKnown = true;
       res.liked = recommendMatch.includes('f_a');
     }
-    // 检查收藏状态
-    let favMatch = ForumParser.extractFirstMatch(html, /<i[^>]*class="([^"]*comiis_favorite_a_color[^"]*)"[^>]*>/i);
+    let favMatch = this.extractFirstMatch(html, /<i[^>]*class="([^"]*comiis_favorite_a_color[^"]*)"[^>]*>/i);
     if (favMatch) {
       res.favoritedKnown = true;
       res.favorited = favMatch.includes('f_a');
@@ -214,18 +152,25 @@ export class ForumParser {
   }
 
   static parseFollowState(html: string): [boolean, boolean] {
-    let linkMatch = ForumParser.extractFirstMatch(html, /<a[^>]*href="([^"]*ac=follow[^"]*)"[^>]*>(.*?)<\/a>/i);
-    if (!linkMatch) return [false, false];
-    // 因为 extractFirstMatch 只抓取第一个括号，这里重新处理一下
-    let match = html.match(/<a[^>]*href="([^"]*ac=follow[^"]*)"[^>]*>(.*?)<\/a>/i);
+    let match = html.match(/<a[^>]*href="([^"]*ac=follow[^"]*)"[^>]*>(.*?)<\\/a>/i);
     if (match) {
       let href = match[1];
-      let text = ForumParser.stripHtmlTags(match[2]);
+      let text = this.stripHtmlTags(match[2]);
       if (href.includes('op=del') || text.includes('取消关注')) return [true, true];
       if (href.includes('op=add')) return [false, true];
       if (text.includes('已关注')) return [true, true];
       return [false, true];
     }
     return [false, false];
+  }
+
+  static parseRichText(html: string): Array<RichTextNode> {
+    let nodes: Array<RichTextNode> = [];
+    if (!html) return nodes;
+    let node = new RichTextNode();
+    node.type = 'text';
+    node.content = this.stripHtmlTags(html).replace(/<br\\s*\\/?>/gi, '\\n');
+    nodes.push(node);
+    return nodes;
   }
 }
