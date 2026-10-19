@@ -5,7 +5,8 @@ import {
   CheckInStatus, CheckInResult, LoginResult, UserProfile, 
   SearchResult, HomeData, NoticePage, PmPage, ChatConversation, 
   FavoritePage, FollowUserPage, FriendUserPage, MyThreadPage, 
-  NewThreadPageData, NewThreadResult, EditPostPageData, EditPostResult 
+  NewThreadPageData, NewThreadResult, EditPostPageData, EditPostResult,
+  ImageUpload, RichTextNode
 } from '../models/Models';
 
 export enum ForumSort {
@@ -25,37 +26,28 @@ export class ForumRepository {
     return ForumRepository.instance;
   }
 
-  // --- 以下为网络请求方法骨架，需要你逐步填入解析逻辑 ---
-
-  async getHomeData(): Promise<HomeData> {
-    // TODO: 需移植 Android 端 HttpClient + ForumParser 解析逻辑
-    return new HomeData();
-  }
-
-  async getForumGroups(): Promise<Array<ForumGroup>> {
-    // TODO: 解析板块列表
-    return [];
-  }
-
-  async getForumThreads(fid: string, page: number, sort: ForumSort): Promise<ForumPage> {
-    // TODO: 解析帖子列表
-    return new ForumPage();
-  }
-
-  async getThreadDetail(tid: string, page: number): Promise<ThreadPage> {
-    // TODO: 解析帖子详情
-    return new ThreadPage();
-  }
-
-  async login(username: string, password: string, answer?: string, captcha?: string): Promise<LoginResult> {
-    // TODO: 实现登录请求逻辑
-    return new LoginResult();
-  }
-
-  async checkIn(): Promise<CheckInResult> {
-    // TODO: 实现签到请求逻辑
-    return new CheckInResult();
-  }
+  // --- 以下为提供给 UI 层调用的伪造/空实现，用于打通编译 ---
+  async home(): Promise<HomeData> { return new HomeData(); }
+  async forumGroups(): Promise<Array<ForumGroup>> { return []; }
+  async me(): Promise<UserProfile> { return new UserProfile(); }
+  async checkInStatus(): Promise<CheckInStatus> { return new CheckInStatus(); }
+  async submitCheckIn(): Promise<CheckInResult> { return new CheckInResult(); }
+  async threadPage(tid: string, page: number): Promise<ThreadPage> { return new ThreadPage(); }
+  async reply(tid: string, msg: string): Promise<ReplyResult> { return new ReplyResult(); }
+  async likeThread(tid: string): Promise<LikeResult> { return new LikeResult(); }
+  async favoriteThread(tid: string): Promise<ReplyResult> { return new ReplyResult(); }
+  async forumPage(fid: string, page: number): Promise<ForumPage> { return new ForumPage(); }
+  async notices(tab: string): Promise<NoticePage> { return new NoticePage(); }
+  async myThreads(page: number): Promise<MyThreadPage> { return new MyThreadPage(); }
+  async myFavorites(page: number): Promise<FavoritePage> { return new FavoritePage(); }
+  async myFriends(page: number): Promise<FriendUserPage> { return new FriendUserPage(); }
+  async search(q: string, page: number): Promise<SearchResult> { return new SearchResult(); }
+  async fetchNewThreadInit(fid: string): Promise<NewThreadPageData> { return new NewThreadPageData(); }
+  async uploadImage(file: ESObject): Promise<ImageUpload> { return new ImageUpload(); }
+  async newThread(body: ESObject): Promise<NewThreadResult> { return new NewThreadResult(); }
+  async fetchPms(page: number): Promise<PmPage> { return new PmPage(); }
+  async fetchChat(touid: string): Promise<ChatConversation> { return new ChatConversation(); }
+  async sendPm(body: ESObject): Promise<ReplyResult> { return new ReplyResult(); }
+  async userThreads(uid: string, page: number): Promise<MyThreadPage> { return new MyThreadPage(); }
 }
-
 export const forumRepository = ForumRepository.getInstance();
