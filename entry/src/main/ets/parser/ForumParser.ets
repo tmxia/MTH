@@ -1,6 +1,4 @@
-import { 
-  ForumGroup, Forum, Thread, ForumPage, ThreadPage, Post, PostQuote 
-} from '../models/Models';
+import { ForumGroup, Forum, Thread, ForumPage, ThreadPage, Post, PostQuote, RichTextNode } from '../models/Models';
 
 export class ActionState {
   liked: boolean = false;
