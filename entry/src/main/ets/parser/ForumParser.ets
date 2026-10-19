@@ -1,4 +1,4 @@
-import { Thread, ThreadPage, Post, RichTextNode, ActionState, ForumGroup, ForumPage , FollowUserItem, FollowUserPage, NewThreadPageData, ThreadType, PmPage, PrivateMessage, ChatConversation, ChatMessage} from '../models/Models';
+import { Thread, ThreadPage, Post, RichTextNode, ActionState, ForumGroup, ForumPage , FollowUserItem, FollowUserPage, NewThreadPageData, ThreadType, PmPage, PrivateMessage, ChatConversation, ChatMessage, ImageUpload} from '../models/Models';
 
 import { AtUser } from '../models/Models';
 export class ForumParser {
@@ -379,6 +379,43 @@ export class ForumParser {
     }
 
     return out;
+  }
+
+
+  // 解析 Discuz swfupload 响应: DISCUZUPLOAD|...|0|aid|...|path
+  static parseUploadResponse(body: string): ImageUpload | null {
+    if (!body) return null;
+    const parts = body.split('|');
+    if (parts.length >= 6 && parts[0] === 'DISCUZUPLOAD' && parts[2] === '0') {
+      const img = new ImageUpload();
+      img.aid = parts[3];
+      const path = parts[5];
+      img.fileName = path.split('/').pop() || '';
+      img.url = 'https://bbs.binmt.cc/data/attachment/forum/' + path;
+      return img;
+    }
+    return null;
+  }
+
+
+  // 从任意页面提取 formhash（name="formhash" 或 url 参数两种形式）
+  static parseFormhash(html: string): string {
+    if (!html) return '';
+    const m1 = /name="formhash"\s+value="([a-zA-Z0-9]+)"/.exec(html);
+    if (m1) return m1[1];
+    const m2 = /formhash=([a-zA-Z0-9]+)/.exec(html);
+    return m2 ? m2[1] : '';
+  }
+
+  // 从收藏列表页找给定 tid 对应的 favid
+  static parseFavoriteFavid(html: string, tid: string): string {
+    if (!html || !tid) return '';
+    const p1 = new RegExp('\\bid=' + tid + '\\b[^"]*?favid=(\\d+)');
+    const m1 = p1.exec(html);
+    if (m1) return m1[1];
+    const p2 = new RegExp('favid=(\\d+)[^"]*?\\bid=' + tid + '\\b');
+    const m2 = p2.exec(html);
+    return m2 ? m2[1] : '';
   }
 
 }

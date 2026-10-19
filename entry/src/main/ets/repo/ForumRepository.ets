@@ -280,7 +280,30 @@ export class ForumRepository {
       return empty;
     }
   }
-  async uploadImage(uri: string, hash?: string, uid?: string): Promise<ImageUpload> { return new ImageUpload(); }
+  async uploadImage(uri: string, hash?: string, uid?: string): Promise<ImageUpload> {
+    const result = new ImageUpload();
+    try {
+      const u = uid || '';
+      const h = hash || '';
+      if (!u || !h) {
+        console.error('uploadImage: 缺少 uid 或 hash');
+        return result;
+      }
+      let filePath = uri;
+      if (filePath.indexOf('file://') === 0) {
+        filePath = filePath.substring(7);
+      }
+      const url = '/misc.php?mod=swfupload&operation=upload&type=image&inajax=yes&infloat=yes&simple=2';
+      const formData: Record<string, string> = { uid: u, hash: h };
+      const body = await HttpClient.uploadMultipart(url, filePath, 'Filedata', 'image.jpg', 'image/jpeg', formData);
+      const parsed = ForumParser.parseUploadResponse(body);
+      if (parsed) return parsed;
+      console.error('uploadImage: 响应解析失败, body=' + (body || '').substring(0, 200));
+    } catch (e) {
+      console.error('uploadImage error: ' + (e as Error).message);
+    }
+    return result;
+  }
   async newThread(fid: string, subject: string, message: string, typeId?: string, formhash?: string): Promise<NewThreadResult> {
     const result = new NewThreadResult();
     try {
@@ -463,6 +486,188 @@ export class ForumRepository {
       return m ? m[1] : '';
     } catch (e) {
       return '';
+    }
+  }
+
+
+  // ===== 收藏 / 举报 / 编辑 / 删帖 / 拉黑 =====
+
+  async setFavorite(tid: string, formhash: string, favorite: boolean): Promise<boolean> {
+    try {
+      if (favorite) {
+        const url = '/home.php?mod=spacecp&ac=favorite&type=thread&id=' + tid +
+          '&formhash=' + formhash + '&handlekey=comiis&inajax=1&mobile=2';
+        const body = await HttpClient.get(url);
+        return body.indexOf('succeedhandle') >= 0 ||
+               body.indexOf('收藏成功') >= 0 ||
+               body.indexOf('已收藏') >= 0 ||
+               body.indexOf('操作成功') >= 0;
+      } else {
+        const favid = await this.favoriteFavid(tid);
+        if (!favid) return false;
+        return await this.deleteFavorite(favid);
+      }
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async favoriteFavid(tid: string): Promise<string> {
+    try {
+      const html = await HttpClient.get('/home.php?mod=space&do=favorite&view=me&type=all&mobile=2');
+      return ForumParser.parseFavoriteFavid(html, tid);
+    } catch (e) {
+      return '';
+    }
+  }
+
+  async deleteFavorite(favid: string): Promise<boolean> {
+    if (!favid) return false;
+    try {
+      const pageUrl = '/home.php?mod=space&do=favorite&view=me&type=all&mobile=2';
+      const pageHtml = await HttpClient.get(pageUrl);
+      const fh = ForumParser.parseFormhash(pageHtml);
+      if (!fh) return false;
+      const url = '/home.php?mod=spacecp&ac=favorite&op=delete&favid=' + favid + '&type=all' +
+        '&formhash=' + fh + '&deletesubmit=true&handlekey=comiis&inajax=1&mobile=2';
+      const body: Record<string, string> = {
+        formhash: fh,
+        deletesubmit: 'true',
+        handlekey: 'comiis'
+      };
+      const res = await HttpClient.post(url, body);
+      return res.indexOf('succeedhandle') >= 0 ||
+             res.indexOf('已删除') >= 0 ||
+             res.indexOf('操作成功') >= 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async reportPost(tid: string, fid: string, formhash: string, pid: string, reason: string, message: string): Promise<boolean> {
+    try {
+      const rtype = (!pid || pid.length === 0) ? 'thread' : 'post';
+      const rid = (rtype === 'thread') ? tid : pid;
+      const formUrl = '/misc.php?mod=report&rtype=' + rtype + '&rid=' + rid + '&tid=' + tid + '&fid=' + fid + '&inajax=1&mobile=2';
+      const page = await HttpClient.get(formUrl);
+      const fh = ForumParser.parseFormhash(page) || formhash;
+      if (!fh) return false;
+      const body: Record<string, string> = {
+        formhash: fh,
+        tid: tid,
+        fid: fid,
+        rtype: rtype,
+        rid: rid,
+        reportsubmit: 'yes',
+        reason: (reason && reason.length > 0) ? reason : '其他',
+        message: (message && message.length > 0) ? message : '该内容涉嫌违规，请核实处理。'
+      };
+      if (rtype === 'post' && pid) {
+        body['pid'] = pid;
+      }
+      const url = '/misc.php?mod=report&rtype=' + rtype + '&rid=' + rid + '&tid=' + tid + '&fid=' + fid + '&reportsubmit=yes&inajax=1&mobile=2';
+      const res = await HttpClient.post(url, body);
+      return res.indexOf('succeedhandle') >= 0 ||
+             res.indexOf('举报成功') >= 0 ||
+             res.indexOf('感谢') >= 0 ||
+             res.indexOf('已提交') >= 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async editPost(tid: string, pid: string, formhash: string, message: string, subject?: string): Promise<EditPostResult> {
+    const result = new EditPostResult();
+    try {
+      const url = '/forum.php?mod=post&action=edit&extra=&tid=' + tid + '&pid=' + pid + '&page=1&editsubmit=yes&mobile=2';
+      const body: Record<string, string> = {
+        formhash: formhash,
+        message: message,
+        editsubmit: 'yes',
+        tid: tid,
+        pid: pid
+      };
+      if (subject && subject.length > 0) {
+        body['subject'] = subject;
+      }
+      // 保留已有的 [attach] 标签关联附件
+      const aidRe = /\[attach\](\d+)\[\/attach\]/g;
+      let am: RegExpExecArray | null = aidRe.exec(message);
+      while (am !== null) {
+        body['attachnew[' + am[1] + '][description]'] = '';
+        am = aidRe.exec(message);
+      }
+      const res = await HttpClient.post(url, body);
+      const ok = res.indexOf('succeedhandle') >= 0 ||
+                 res.indexOf('编辑成功') >= 0 ||
+                 res.indexOf('保存成功') >= 0;
+      result.success = ok;
+      result.message = ok ? '编辑成功' : '编辑失败，请稍后重试';
+    } catch (e) {
+      result.success = false;
+      result.message = '编辑失败：' + (e as Error).message;
+    }
+    return result;
+  }
+
+  async deletePost(tid: string, pid: string, formhash: string): Promise<boolean> {
+    try {
+      const formUrl = '/forum.php?mod=post&action=edit&tid=' + tid + '&pid=' + pid + '&mobile=2';
+      const page = await HttpClient.get(formUrl);
+      const fh = ForumParser.parseFormhash(page) || formhash;
+      if (!fh) return false;
+      const body: Record<string, string> = {
+        formhash: fh,
+        delete: '1',
+        pid: pid,
+        tid: tid,
+        editsubmit: 'yes'
+      };
+      const url = '/forum.php?mod=post&action=edit&extra=&tid=' + tid + '&pid=' + pid + '&page=1&delete=1&mobile=2';
+      const res = await HttpClient.post(url, body);
+      // 如果响应仍然是编辑表单，说明删除失败
+      const stillForm = res.indexOf('action=edit') >= 0 && res.indexOf('editsubmit') >= 0;
+      return res.length > 0 && !stillForm;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async addUserBlacklist(username: string, formhash: string): Promise<string> {
+    try {
+      const fh = (formhash && formhash.length > 0) ? formhash : await this.fetchFormhash();
+      if (!fh) return '获取操作凭据失败，请重试';
+      const url = '/home.php?mod=spacecp&ac=friend&op=blacklist&start=&formhash=' + fh + '&inajax=1&mobile=2';
+      const body: Record<string, string> = {
+        blacklistsubmit: 'true',
+        blacklistsubmit_btn: 'true',
+        formhash: fh,
+        username: username
+      };
+      const res = await HttpClient.post(url, body);
+      const ok = res.indexOf('succeedhandle') >= 0 ||
+                 res.indexOf('已加入') >= 0 ||
+                 res.indexOf('黑名单') >= 0;
+      return ok ? '已加入黑名单' : '操作失败，请重试';
+    } catch (e) {
+      return '操作失败：' + (e as Error).message;
+    }
+  }
+
+  async removeUserBlacklist(uid: string): Promise<string> {
+    try {
+      if (!uid) return '用户不存在';
+      const fh = await this.fetchFormhash();
+      if (!fh) return '尚未登录或会话已过期';
+      const url = '/home.php?mod=spacecp&ac=friend&op=blacklist&subop=delete&uid=' + uid +
+        '&formhash=' + fh + '&inajax=1&mobile=2';
+      const res = await HttpClient.get(url);
+      const ok = res.indexOf('succeedhandle') >= 0 ||
+                 res.indexOf('已移出') >= 0 ||
+                 res.indexOf('移除成功') >= 0;
+      return ok ? '已移出黑名单' : '操作失败，请重试';
+    } catch (e) {
+      return '操作失败：' + (e as Error).message;
     }
   }
 
