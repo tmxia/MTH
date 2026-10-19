@@ -229,4 +229,17 @@ export class ThreadSnapshot {
   totalReplies?: number;
   posts?: Array<Post>;
   progress?: Array<PageProgress>;
+
+export class Smiley {
+  code: string = "";
+  url: string = "";
+}
+
+export class SmileyPack {
+  id: string = "";
+  name: string = "";
+  folder: string = "";
+  items: Array<Smiley> = [];
+}
+
 }

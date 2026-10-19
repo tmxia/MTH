@@ -1,4 +1,4 @@
-import { Thread, ThreadPage, Post, RichTextNode, ActionState, ForumGroup, ForumPage , FollowUserItem, FollowUserPage, NewThreadPageData, ThreadType, PmPage, PrivateMessage, ChatConversation, ChatMessage, ImageUpload} from '../models/Models';
+import { Thread, ThreadPage, Post, RichTextNode, ActionState, ForumGroup, ForumPage , FollowUserItem, FollowUserPage, NewThreadPageData, ThreadType, PmPage, PrivateMessage, ChatConversation, ChatMessage, ImageUpload, EditPostPageData, Smiley, SmileyPack} from '../models/Models';
 
 import { AtUser } from '../models/Models';
 export class ForumParser {
@@ -416,6 +416,118 @@ export class ForumParser {
     const p2 = new RegExp('favid=(\\d+)[^"]*?\\bid=' + tid + '\\b');
     const m2 = p2.exec(html);
     return m2 ? m2[1] : '';
+  }
+
+
+  // ===== 编辑帖子初始化 =====
+  static parseEditPostInit(html: string): EditPostPageData {
+    const out = new EditPostPageData();
+    if (!html) return out;
+
+    out.formhash = ForumParser.parseFormhash(html);
+
+    const subjRe = /<input[^>]+name="subject"[^>]+value="([^"]*)"/;
+    const sm = subjRe.exec(html);
+    if (sm) out.subject = sm[1];
+
+    const msgRe = /<textarea[^>]+name="message"[^>]*>([\s\S]*?)<\/textarea>/;
+    const mm = msgRe.exec(html);
+    if (mm) {
+      let body = mm[1];
+      body = body.replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+                 .replace(/&amp;/g, '&').replace(/&quot;/g, '"')
+                 .replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
+      out.message = body;
+    }
+
+    const uidRe = /uploadUid\s*[:=]\s*['"]?(\d+)/;
+    const um = uidRe.exec(html);
+    if (um) out.uploadUid = um[1];
+
+    const hashRe = /uploadHash\s*[:=]\s*['"]([a-zA-Z0-9]+)['"]/;
+    const hm = hashRe.exec(html);
+    if (hm) out.uploadHash = hm[1];
+
+    const selRe = /<select[^>]+name="typeid"[^>]*>([\s\S]*?)<\/select>/;
+    const selM = selRe.exec(html);
+    if (selM) {
+      const optRe = /<option\s+value="(\d+)"[^>]*>([^<]+)<\/option>/g;
+      let om: RegExpExecArray | null = optRe.exec(selM[1]);
+      while (om !== null) {
+        if (om[1] !== '0') {
+          const t = new ThreadType();
+          t.id = om[1];
+          t.name = om[2].trim();
+          out.types.push(t);
+        }
+        om = optRe.exec(selM[1]);
+      }
+    }
+
+    if (html.indexOf('没有权限') >= 0) {
+      out.permissionDenied = '没有编辑这条内容的权限';
+    } else if (html.indexOf('不能再进行编辑') >= 0) {
+      out.permissionDenied = '该内容已超过可编辑时限';
+    }
+    return out;
+  }
+
+  // ===== 表情包解析（Discuz smiley.js） =====
+  static parseSmileyPacks(js: string): SmileyPack[] {
+    const packs: SmileyPack[] = [];
+    if (!js) return packs;
+    const BASE = 'https://bbs.binmt.cc/static/image/smiley/';
+
+    // 1) 提取 pack 名和 folder
+    const folders: Map<string, string[]> = new Map();
+    const typeRe = /smilies_type\['_(\d+)'\]\s*=\s*\[\s*'([^']*)'\s*,\s*'([^']*)'\s*\]/g;
+    let tm: RegExpExecArray | null = typeRe.exec(js);
+    while (tm !== null) {
+      folders.set(tm[1], [tm[2], tm[3]]);
+      tm = typeRe.exec(js);
+    }
+
+    // 2) 提取每个 smiley 项
+    const chunks: Map<string, Smiley[]> = new Map();
+    const arrRe = /smilies_array\[(\d+)\]\[(\d+)\]\s*=\s*\[\s*'(\d+)'\s*,\s*'((?:[^'\\]|\\.)*)'\s*,\s*'([^']*)'/g;
+    let am: RegExpExecArray | null = arrRe.exec(js);
+    while (am !== null) {
+      const packId = am[1];
+      const code = am[4];
+      const file = am[5];
+      const folderInfo = folders.get(packId);
+      if (folderInfo) {
+        const s = new Smiley();
+        s.code = code;
+        s.url = BASE + folderInfo[1] + '/' + file;
+        let arr = chunks.get(packId);
+        if (!arr) {
+          arr = [];
+          chunks.set(packId, arr);
+        }
+        let exists = false;
+        for (const x of arr) {
+          if (x.code === code) { exists = true; break; }
+        }
+        if (!exists) arr.push(s);
+      }
+      am = arrRe.exec(js);
+    }
+
+    // 3) 组合成 pack 列表
+    folders.forEach((val: string[], id: string) => {
+      const items = chunks.get(id);
+      if (items && items.length > 0) {
+        const pack = new SmileyPack();
+        pack.id = id;
+        pack.name = val[0];
+        pack.folder = val[1];
+        pack.items = items;
+        packs.push(pack);
+      }
+    });
+
+    return packs;
   }
 
 }

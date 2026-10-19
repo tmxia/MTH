@@ -7,7 +7,7 @@ import {
   FavoritePage, FriendUserPage, MyThreadPage, NewThreadPageData, 
   NewThreadResult, EditPostPageData, EditPostResult, ImageUpload,
   ReplyResult, LikeResult
-, AtUser, FollowUserPage} from '../models/Models';
+, AtUser, FollowUserPage, SmileyPack} from '../models/Models';
 import { BusinessError } from '@ohos.base';
 
 
@@ -668,6 +668,27 @@ export class ForumRepository {
       return ok ? '已移出黑名单' : '操作失败，请重试';
     } catch (e) {
       return '操作失败：' + (e as Error).message;
+    }
+  }
+
+
+  async fetchEditPostInit(tid: string, pid: string): Promise<EditPostPageData> {
+    try {
+      const html = await HttpClient.get('/forum.php?mod=post&action=edit&tid=' + tid + '&pid=' + pid + '&mobile=2');
+      return ForumParser.parseEditPostInit(html);
+    } catch (e) {
+      const empty = new EditPostPageData();
+      empty.permissionDenied = '网络异常：' + (e as Error).message;
+      return empty;
+    }
+  }
+
+  async smileyPacks(): Promise<Array<SmileyPack>> {
+    try {
+      const js = await HttpClient.get('/data/cache/common_smilies_var.js');
+      return ForumParser.parseSmileyPacks(js);
+    } catch (e) {
+      return [];
     }
   }
 

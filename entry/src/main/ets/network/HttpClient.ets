@@ -1,4 +1,6 @@
 import request from '@ohos.request';
+import fs from '@ohos.file.fs';
+import util from '@ohos.util';
 import http from '@ohos.net.http';
 import { cookieManager } from './CookieManager';
 import { WafSolver } from './WafSolver';
@@ -189,6 +191,83 @@ export class HttpClient {
       httpRequest.destroy();
     }
   }
+
+  // ===== 手动 multipart 上传（拿响应体） =====
+  static async uploadMultipart(
+    url: string,
+    filePath: string,
+    fileFieldName: string,
+    fileName: string,
+    fileMime: string,
+    formData: Record<string, string>
+  ): Promise<string> {
+    const BOUNDARY = '----MTFBoundary' + Date.now();
+    const enc = new util.TextEncoder();
+    const chunks: Uint8Array[] = [];
+
+    const keys = Object.keys(formData);
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      const v = formData[k];
+      const part = '--' + BOUNDARY + '\r\n' +
+        'Content-Disposition: form-data; name="' + k + '"\r\n\r\n' +
+        v + '\r\n';
+      chunks.push(enc.encodeInto(part));
+    }
+
+    const fileHeader = '--' + BOUNDARY + '\r\n' +
+      'Content-Disposition: form-data; name="' + fileFieldName + '"; filename="' + fileName + '"\r\n' +
+      'Content-Type: ' + fileMime + '\r\n\r\n';
+    chunks.push(enc.encodeInto(fileHeader));
+
+    const file = await fs.open(filePath, fs.OpenMode.READ_ONLY);
+    try {
+      const stat = await fs.stat(filePath);
+      const fileBuf = new ArrayBuffer(stat.size);
+      await fs.read(file.fd, fileBuf);
+      chunks.push(new Uint8Array(fileBuf));
+    } finally {
+      await fs.close(file);
+    }
+
+    const footer = '\r\n--' + BOUNDARY + '--\r\n';
+    chunks.push(enc.encodeInto(footer));
+
+    let total = 0;
+    for (let i = 0; i < chunks.length; i++) total += chunks[i].length;
+    const merged = new Uint8Array(total);
+    let off = 0;
+    for (let i = 0; i < chunks.length; i++) {
+      merged.set(chunks[i], off);
+      off += chunks[i].length;
+    }
+
+    const httpRequest = http.createHttp();
+    const headers: Record<string, string> = {
+      'User-Agent': HttpClient.userAgent,
+      'Content-Type': 'multipart/form-data; boundary=' + BOUNDARY,
+      'Referer': 'https://bbs.binmt.cc/forum.php'
+    };
+    const cookie = cookieManager.get();
+    if (cookie) headers['Cookie'] = cookie;
+
+    const options: http.HttpRequestOptions = {
+      method: http.RequestMethod.POST,
+      header: headers,
+      extraData: merged.buffer as ArrayBuffer,
+      expectDataType: http.HttpDataType.STRING,
+      readTimeout: 30000,
+      connectTimeout: 30000
+    };
+
+    try {
+      const response = await httpRequest.request(fullUrlOf(url), options);
+      return response.result as string;
+    } finally {
+      httpRequest.destroy();
+    }
+  }
+
 }
 
 

@@ -43,8 +43,21 @@ struct PostEdit {
       this.editPid = params.pid;
       this.fid = params.fid || '';
       this.forumName = params.forumName || '编辑帖子';
+      // 先用路由参数作为兜底
       this.title = params.subject || '';
       this.content = params.message || '';
+      // 后台拉取真实原始内容（更准确）
+      try {
+        const init = await forumRepository.fetchEditPostInit(params.tid, params.pid);
+        if (init) {
+          this.initData = init as NewThreadPageData;
+          if (init.subject) this.title = init.subject;
+          if (init.message) this.content = init.message;
+          if (init.permissionDenied) {
+            promptAction.showToast({ message: init.permissionDenied });
+          }
+        }
+      } catch (e) {}
       return;
     }
     let context = this.getUIContext().getHostContext() as common.UIAbilityContext;
