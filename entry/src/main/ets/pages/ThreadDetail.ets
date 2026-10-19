@@ -2,6 +2,8 @@ import { forumRepository } from '../repo/ForumRepository';
 import { ThreadPage, Post, RichTextNode } from '../models/Models';
 import { ForumParser } from '../parser/ForumParser';
 import router from '@ohos.router';
+import { historyStore } from '../common/HistoryStore';
+import { HistoryItem } from '../models/Models';
 
 @Entry
 @Component
@@ -26,6 +28,23 @@ struct ThreadDetail {
     try {
       const data = await forumRepository.threadPage(tid, page);
       this.tp = data;
+      if (page === 1 && data) {
+        const h = new HistoryItem();
+        h.tid = tid;
+        h.title = (data.subject as string) || '';
+        h.forumName = (data.forumName as string) || '';
+        h.author = '';
+        h.avatarUrl = '';
+        if (data.posts && data.posts.length > 0) {
+          h.author = data.posts[0].authorName || '';
+          h.avatarUrl = (data.posts[0].avatarUrl as string) || '';
+        }
+        h.viewedAt = Date.now();
+        h.type = 'thread';
+        historyStore.add(h).catch((e: Error) => {
+          console.error('add history error: ' + e.message);
+        });
+      }
       
       const newMap = new Map<string, Array<RichTextNode>>();
       for (const post of data.posts) {
