@@ -36,7 +36,28 @@ export class ForumParser {
 
   // ------------------ 核心：解析帖子详情页 ------------------
 
-  static parseRichText(html: string): Array<RichTextNode> { return []; }
+    static parseRichText(html: string): Array<RichTextNode> {
+    let nodes: Array<RichTextNode> = [];
+    if (!html) return nodes;
+
+    // 轻量级降级：将 <br> 和块级标签替换为换行，然后剥离其他标签
+    let text = html.replace(/<br\s*\/?>/gi, '\n')
+                   .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+                   .replace(/<[^>]+>/g, '')
+                   .replace(/&nbsp;/g, ' ')
+                   .replace(/&amp;/g, '&')
+                   .replace(/&lt;/g, '<')
+                   .replace(/&gt;/g, '>')
+                   .replace(/\n{3,}/g, '\n\n'); // 过滤多余换行
+
+    if (text.trim().length > 0) {
+      let node = new RichTextNode();
+      node.type = 'text';
+      node.content = text.trim();
+      nodes.push(node);
+    }
+    return nodes;
+  }
 
   static parseThreadPage(html: string, page: number): ThreadPage {
     let threadPage = new ThreadPage();
