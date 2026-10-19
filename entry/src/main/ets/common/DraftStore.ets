@@ -32,6 +32,26 @@ export class DraftStore {
     } catch (e) {
       console.error(JSON.stringify(e));
     }
+    // 同步到列表模式，让 Drafts 页面能读到
+    const cur = DraftStore.getItems();
+    const kept: PostDraft[] = [];
+    let found: PostDraft | null = null;
+    for (let i = 0; i < cur.length; i++) {
+      if (cur[i].fid === fid) { found = cur[i]; } else { kept.push(cur[i]); }
+    }
+    const d: PostDraft = found || new PostDraft();
+    d.fid = fid;
+    d.subject = title || '';
+    d.message = content || '';
+    d.savedAt = Date.now();
+    if (!d.forumName) d.forumName = '';
+    if (!d.typeId) d.typeId = '';
+    kept.push(d);
+    DraftStore._listCache = kept;
+    try {
+      await DraftStore.pref.put(DraftStore.LIST_KEY, JSON.stringify(kept));
+      await DraftStore.pref.flush();
+    } catch (e) {}
   }
 
   static async getDraft(fid: string): Promise<DraftData | null> {

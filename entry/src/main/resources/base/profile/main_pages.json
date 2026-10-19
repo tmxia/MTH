@@ -12,6 +12,7 @@
     "pages/PostEdit",
     "pages/PmList",
     "pages/Chat",
-    "pages/UserProfilePage"
+    "pages/UserProfilePage",
+    "pages/Drafts"
   ]
 }
