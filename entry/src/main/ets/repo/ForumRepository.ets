@@ -269,7 +269,17 @@ export class ForumRepository {
     }
   }
 
-  async fetchNewThreadInit(fid?: string): Promise<NewThreadPageData> { return new NewThreadPageData(); }
+  async fetchNewThreadInit(fid?: string): Promise<NewThreadPageData> {
+    const fidStr = fid || '';
+    try {
+      const html = await HttpClient.get('/forum.php?mod=post&action=newthread&fid=' + fidStr + '&mobile=2');
+      return ForumParser.parseNewThreadPageData(html);
+    } catch (e) {
+      const empty = new NewThreadPageData();
+      empty.permissionDenied = '网络异常：' + (e as Error).message;
+      return empty;
+    }
+  }
   async uploadImage(uri: string, hash?: string, uid?: string): Promise<ImageUpload> { return new ImageUpload(); }
   async newThread(fid: string, subject: string, message: string, typeId?: string, formhash?: string): Promise<NewThreadResult> {
     const result = new NewThreadResult();
@@ -308,8 +318,25 @@ export class ForumRepository {
     }
     return result;
   }
-  async fetchPms(page?: number): Promise<PmPage> { return new PmPage(); }
-  async fetchChat(touid: string): Promise<ChatConversation> { return new ChatConversation(); }
+  async fetchPms(page?: number): Promise<PmPage> {
+    const p = page || 1;
+    try {
+      const html = await HttpClient.get('/home.php?mod=space&do=pm&filter=&page=' + p + '&mobile=2');
+      return ForumParser.parsePmPage(html);
+    } catch (e) {
+      return new PmPage();
+    }
+  }
+  async fetchChat(touid: string): Promise<ChatConversation> {
+    try {
+      const html = await HttpClient.get('/home.php?mod=space&do=pm&subop=view&touid=' + touid + '&mobile=2');
+      return ForumParser.parseChatConversation(html, touid);
+    } catch (e) {
+      const empty = new ChatConversation();
+      empty.touid = touid;
+      return empty;
+    }
+  }
   async sendPm(touid: string, message: string, formhash?: string): Promise<ReplyResult> {
     const result = new ReplyResult();
     try {

@@ -1,4 +1,4 @@
-import { Thread, ThreadPage, Post, RichTextNode, ActionState, ForumGroup, ForumPage , FollowUserItem, FollowUserPage} from '../models/Models';
+import { Thread, ThreadPage, Post, RichTextNode, ActionState, ForumGroup, ForumPage , FollowUserItem, FollowUserPage, NewThreadPageData, ThreadType, PmPage, PrivateMessage, ChatConversation, ChatMessage} from '../models/Models';
 
 import { AtUser } from '../models/Models';
 export class ForumParser {
@@ -242,6 +242,142 @@ export class ForumParser {
 
     // 是否有下一页
     out.hasNext = html.indexOf('下一页') >= 0 || html.indexOf('next') >= 0;
+    return out;
+  }
+
+
+  // ===== 发帖 / PM / 聊天 =====
+
+  static parseNewThreadPageData(html: string): NewThreadPageData {
+    const out = new NewThreadPageData();
+    if (!html) return out;
+
+    const fhRe = /name="formhash"\s+value="([a-zA-Z0-9]+)"/;
+    const fhM = fhRe.exec(html);
+    if (fhM) out.formhash = fhM[1];
+
+    const ptRe = /name="posttime"\s+value="([^"]+)"/;
+    const ptM = ptRe.exec(html);
+    if (ptM) out.posttime = ptM[1];
+
+    const uidRe = /uploadUid\s*[:=]\s*['"]?(\d+)/;
+    const uidM = uidRe.exec(html);
+    if (uidM) out.uploadUid = uidM[1];
+
+    const hashRe = /uploadHash\s*[:=]\s*['"]([a-zA-Z0-9]+)['"]/;
+    const hashM = hashRe.exec(html);
+    if (hashM) out.uploadHash = hashM[1];
+
+    const selectRe = /<select[^>]+name="typeid"[^>]*>([\s\S]*?)<\/select>/;
+    const selM = selectRe.exec(html);
+    if (selM) {
+      const optRe = /<option\s+value="(\d+)"[^>]*>([^<]+)<\/option>/g;
+      let om: RegExpExecArray | null = optRe.exec(selM[1]);
+      while (om !== null) {
+        if (om[1] !== '0') {
+          const t = new ThreadType();
+          t.id = om[1];
+          t.name = om[2].trim();
+          out.types.push(t);
+        }
+        om = optRe.exec(selM[1]);
+      }
+    }
+
+    if (html.indexOf('没有权限') >= 0 || html.indexOf('权限不足') >= 0 || html.indexOf('无法发帖') >= 0) {
+      out.permissionDenied = '没有发帖权限';
+    }
+
+    return out;
+  }
+
+  static parsePmPage(html: string): PmPage {
+    const out = new PmPage();
+    if (!html) return out;
+
+    if (html.indexOf('请先登录') >= 0) {
+      out.loggedOut = true;
+      return out;
+    }
+
+    const blockRe = /space(?:&amp;|&)uid=(\d+)[\s\S]{0,1500}?<\/li>/g;
+    let m: RegExpExecArray | null = blockRe.exec(html);
+    while (m !== null) {
+      const block = m[0];
+      const pm = new PrivateMessage();
+      pm.touid = m[1];
+
+      const nameRe = /<strong[^>]*>([^<]+)<\/strong>/;
+      const nm = nameRe.exec(block);
+      if (nm) pm.username = nm[1].trim();
+
+      const avRe = /<img[^>]+src=["']([^"']+)["']/;
+      const av = avRe.exec(block);
+      if (av) {
+        let u = av[1];
+        if (u.indexOf('//') === 0) u = 'https:' + u;
+        pm.avatarUrl = u;
+      }
+
+      const timeRe = /<span[^>]*class="[^"]*xg1[^"]*"[^>]*>([^<]+)<\/span>/;
+      const tm = timeRe.exec(block);
+      if (tm) pm.timeText = tm[1].trim();
+
+      const summaryRe = /<p[^>]*>([^<]+)<\/p>/;
+      const sm = summaryRe.exec(block);
+      if (sm) pm.summary = sm[1].trim();
+
+      if (block.indexOf('未读') >= 0) pm.unread = true;
+
+      out.messages.push(pm);
+      m = blockRe.exec(html);
+    }
+
+    return out;
+  }
+
+  static parseChatConversation(html: string, touid: string): ChatConversation {
+    const out = new ChatConversation();
+    out.touid = touid;
+    if (!html) return out;
+
+    const fhRe = /name="formhash"\s+value="([a-zA-Z0-9]+)"/;
+    const fhM = fhRe.exec(html);
+    if (fhM) out.formhash = fhM[1];
+
+    const nameRe = /<title>([^<]+)<\/title>/;
+    const nm = nameRe.exec(html);
+    if (nm) {
+      let title = nm[1].trim();
+      title = title.replace(/ - [^ ]+$/, '');
+      out.targetName = title;
+    }
+
+    const msgRe = /<div[^>]*class="[^"]*message[^"]*"[^>]*>([\s\S]{0,2000}?)<\/div>/g;
+    let mm: RegExpExecArray | null = msgRe.exec(html);
+    let idx = 0;
+    while (mm !== null) {
+      const block = mm[0];
+      const cm = new ChatMessage();
+      cm.id = 'm' + idx;
+      idx++;
+
+      const txtRe = /<p[^>]*>([\s\S]*?)<\/p>/;
+      const tm = txtRe.exec(block);
+      if (tm) {
+        cm.text = tm[1].replace(/<[^>]+>/g, '').trim();
+      }
+
+      const timeRe = /<span[^>]*class="[^"]*time[^"]*"[^>]*>([^<]+)<\/span>/;
+      const tt = timeRe.exec(block);
+      if (tt) cm.time = tt[1].trim();
+
+      if (block.indexOf('class="self') >= 0) cm.isSelf = true;
+
+      if (cm.text) out.messages.push(cm);
+      mm = msgRe.exec(html);
+    }
+
     return out;
   }
 
