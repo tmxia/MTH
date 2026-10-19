@@ -16,7 +16,7 @@ struct SearchPage {
       const res = await forumRepository.search(this.keyword);
       this.threads = res.threads;
     } catch (e) {
-      console.error(e);
+      console.error(JSON.stringify(e));
     } finally {
       this.isLoading = false;
     }

@@ -27,7 +27,7 @@ struct Chat {
     try {
       this.conv = await forumRepository.fetchChat(this.touid);
     } catch (e) {
-      console.error(e);
+      console.error(JSON.stringify(e));
     } finally {
       this.isLoading = false;
     }

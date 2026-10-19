@@ -26,7 +26,7 @@ export class DraftStore {
       await DraftStore.pref.put(draftKey, data);
       await DraftStore.pref.flush();
     } catch (e) {
-      console.error(e);
+      console.error(JSON.stringify(e));
     }
   }
 

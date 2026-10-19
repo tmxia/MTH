@@ -17,7 +17,7 @@ struct PmList {
     try {
       this.pageData = await forumRepository.fetchPms();
     } catch (e) {
-      console.error(e);
+      console.error(JSON.stringify(e));
     } finally {
       this.isLoading = false;
     }

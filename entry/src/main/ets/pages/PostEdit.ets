@@ -77,7 +77,7 @@ struct PostEdit {
         this.isUploading = false;
       }
     } catch (e) {
-      console.error(e);
+      console.error(JSON.stringify(e));
       this.isUploading = false;
     }
   }

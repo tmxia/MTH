@@ -18,7 +18,7 @@ struct MyFriends {
       const res = await forumRepository.myFriends(1);
       this.items = res.users;
     } catch (e) {
-      console.error(e);
+      console.error(JSON.stringify(e));
     } finally {
       this.isLoading = false;
     }

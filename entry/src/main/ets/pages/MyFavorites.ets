@@ -18,7 +18,7 @@ struct MyFavorites {
       const res = await forumRepository.myFavorites(1);
       this.items = res.items;
     } catch (e) {
-      console.error(e);
+      console.error(JSON.stringify(e));
     } finally {
       this.isLoading = false;
     }

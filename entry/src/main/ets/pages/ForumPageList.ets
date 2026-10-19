@@ -59,7 +59,7 @@ struct ForumPageList {
       this.threads = this.threads.concat(data.threads);
       this.hasNext = data.hasNext;
     } catch (e) {
-      console.error(e);
+      console.error(JSON.stringify(e));
     } finally {
       this.isLoadingMore = false;
     }

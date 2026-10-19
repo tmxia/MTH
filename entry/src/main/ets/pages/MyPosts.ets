@@ -18,7 +18,7 @@ struct MyPosts {
       const res = await forumRepository.myThreads(1);
       this.items = res.threads;
     } catch (e) {
-      console.error(e);
+      console.error(JSON.stringify(e));
     } finally {
       this.isLoading = false;
     }

@@ -25,7 +25,7 @@ struct UserProfilePage {
       const res = await forumRepository.userThreads(this.uid);
       this.threads = res.threads;
     } catch (e) {
-      console.error(e);
+      console.error(JSON.stringify(e));
     } finally {
       this.isLoading = false;
     }
