@@ -139,3 +139,94 @@ export class ActionState {
   favorited: boolean = false;
   favoritedKnown: boolean = false;
 }
+
+// ===== 自动对齐:安卓有、鸿蒙无 =====
+
+export class AtUser {
+  uid?: string;
+  name?: string;
+  avatarUrl?: string;
+  subtitle?: string;
+}
+
+export class DownloadedThread {
+  tid?: string;
+  subject?: string;
+  forumName?: string;
+  fileName?: string;
+  uri?: string;
+  savedAt?: number;
+  replyCount?: number;
+  sizeBytes?: number;
+}
+
+export class FollowUserItem {
+  uid?: string;
+  username?: string;
+  avatarUrl?: string;
+  fansCount?: string;
+  followCount?: string;
+  isFollowing?: boolean;
+  remark?: string;
+}
+
+export class FollowUserPage {
+  users?: Array<FollowUserItem>;
+  page?: number;
+  hasNext?: boolean;
+}
+
+export class FriendRequestItem {
+  uid?: string;
+  username?: string;
+  avatarUrl?: string;
+  description?: string;
+}
+
+export class FriendRequestPage {
+  requests?: Array<FriendRequestItem>;
+  page?: number;
+  hasNext?: boolean;
+  formhash?: string;
+}
+
+export class HistoryItem {
+  tid?: string;
+  title?: string;
+  author?: string;
+  avatarUrl?: string;
+  forumName?: string;
+  viewedAt?: number;
+  type?: string;
+}
+
+export class LikeUser {
+  uid?: string;
+  name?: string;
+  avatarUrl?: string;
+}
+
+export class PageProgress {
+  authorId?: string;
+  maxPage?: number;
+  totalPages?: number;
+}
+
+export class PostDraft {
+  fid?: string;
+  forumName?: string;
+  subject?: string;
+  message?: string;
+  typeId?: string;
+  savedAt?: number;
+}
+
+export class ThreadSnapshot {
+  subject?: string;
+  forumName?: string;
+  opUid?: string;
+  fid?: string;
+  totalReplies?: number;
+  posts?: Array<Post>;
+  progress?: Array<PageProgress>;
+}
