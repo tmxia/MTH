@@ -1,4 +1,5 @@
 import { HttpClient } from '../network/HttpClient';
+import { ForumParser } from '../parser/ForumParser';
 import { 
   ForumGroup, Forum, Thread, ForumPage, ThreadPage, Post, 
   CheckInStatus, CheckInResult, LoginResult, UserProfile, ReplyResult, LikeResult, 
