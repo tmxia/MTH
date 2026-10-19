@@ -84,7 +84,7 @@ export class DraftStore {
     for (let i = 0; i < DraftStore._listCache.length; i++) {
       out.push(DraftStore._listCache[i]);
     }
-    out.sort(function(a: PostDraft, b: PostDraft): number {
+    out.sort((a: PostDraft, b: PostDraft): number => {
       return (b.savedAt || 0) - (a.savedAt || 0);
     });
     return out;

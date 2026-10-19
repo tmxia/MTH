@@ -1,6 +1,7 @@
 import { forumRepository } from '../repo/ForumRepository';
 import { MyThreadPage, Thread } from '../models/Models';
 import router from '@ohos.router';
+import promptAction from '@ohos.promptAction';
 import { historyStore } from '../common/HistoryStore';
 import { HistoryItem } from '../models/Models';
 

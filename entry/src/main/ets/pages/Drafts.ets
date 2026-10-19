@@ -36,7 +36,7 @@ struct Drafts {
   openDraft(d: PostDraft) {
     router.pushUrl({
       url: 'pages/PostEdit',
-      params: { fid: d.fid, name: d.forumName }
+      params: { fid: d.fid || '', name: d.forumName || '' }
     });
   }
 

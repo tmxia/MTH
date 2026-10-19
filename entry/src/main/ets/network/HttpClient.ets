@@ -270,4 +270,10 @@ export class HttpClient {
 
 }
 
+// 完整 URL 辅助（模块级）
+function fullUrlOf(url: string): string {
+  return url.startsWith('http') ? url : 'https://bbs.binmt.cc/' + url;
+}
+
+
 

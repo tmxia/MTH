@@ -77,14 +77,14 @@ export struct SmileyPanel {
       if (this.loading) {
         Row() {
           LoadingProgress().width(24).height(24).color(MtfColors.primary)
-          Text('加载表情…').fontSize(12).fontColor(MtfColors.textLightColor).margin({ left: 6 })
+          Text('加载表情…').fontSize(12).fontColor(MtfColors.textLight).margin({ left: 6 })
         }.height(40).justifyContent(FlexAlign.Center).width('100%')
       } else if (this.useFallback) {
         // 降级：显示 emoji
         this.renderFallback()
       } else if (this.packs.length === 0) {
         Row() {
-          Text('表情加载失败').fontSize(12).fontColor(MtfColors.textLightColor)
+          Text('表情加载失败').fontSize(12).fontColor(MtfColors.textLight)
         }.height(40).justifyContent(FlexAlign.Center).width('100%')
       } else {
         // 真实表情：多 pack 切换
@@ -130,7 +130,7 @@ export struct SmileyPanel {
     .width('100%')
   }
 
-  renderFallback() {
+  @Builder renderFallback() {
     Grid() {
       ForEach(FALLBACK_ITEMS, (item: FallbackItem) => {
         GridItem() {

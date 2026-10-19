@@ -63,10 +63,10 @@ struct PostEdit {
     let context = this.getUIContext().getHostContext() as common.UIAbilityContext;
     await DraftStore.init(context);
 
-    const params = router.getParams() as Record<string, string>;
-    if (params && params.fid) {
-      this.fid = params.fid;
-      this.forumName = params.name || '未知版块';
+    const params2 = router.getParams() as Record<string, string>;
+    if (params2 && params2.fid) {
+      this.fid = params2.fid;
+      this.forumName = params2.name || '未知版块';
       await this.loadInitData();
       
       // 恢复草稿

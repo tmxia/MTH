@@ -128,7 +128,7 @@ export class ForumParser {
     if (!html) return names;
     // 格式：{'uid':'123','username':'xxx'} 或 {'uid':123,'name':'xxx'}
     const re1 = /['"]username['"]\s*:\s*['"]([^'"]+)['"]/g;
-    let m;
+    let m: RegExpExecArray | null = null;
     while ((m = re1.exec(html)) !== null) {
       if (m[1] && m[1].indexOf('\\') < 0) names.push(m[1]);
     }
@@ -154,7 +154,7 @@ export class ForumParser {
     // 每个用户块：含 uid 链接 + 用户名 + 可选头像
     // 常见形态：<a href="...space&uid=123...">...<img src="avatar">...<strong>name</strong>
     const blockRe = /space(?:&amp;|&)uid=(\d+)[\s\S]{0,800}?<\/(?:li|dl|div)>/g;
-    let m;
+    let m: RegExpExecArray | null = null;
     while ((m = blockRe.exec(html)) !== null) {
       const block = m[0];
       const uid = m[1];
@@ -162,7 +162,7 @@ export class ForumParser {
       let name = '';
       const nameRe = /<strong[^>]*>([^<]+)<\/strong>/;
       const nm = nameRe.exec(block);
-      if (nm) { name = nm[1].trim(); }
+      if (nm) { name = (nm[1] || '').trim(); }
       if (!name) {
         // 退化：找 alt 属性
         const altRe = /alt=["']([^"']+)["']/;
@@ -211,7 +211,7 @@ export class ForumParser {
 
       const nameRe = /<strong[^>]*>([^<]+)<\/strong>/;
       const nm = nameRe.exec(block);
-      if (nm) item.username = nm[1].trim();
+      if (nm) item.username = (nm[1] || '').trim();
 
       const avRe = /<img[^>]+src=["']([^"']+)["']/;
       const av = avRe.exec(block);
@@ -309,7 +309,7 @@ export class ForumParser {
 
       const nameRe = /<strong[^>]*>([^<]+)<\/strong>/;
       const nm = nameRe.exec(block);
-      if (nm) pm.username = nm[1].trim();
+      if (nm) pm.username = (nm[1] || '').trim();
 
       const avRe = /<img[^>]+src=["']([^"']+)["']/;
       const av = avRe.exec(block);

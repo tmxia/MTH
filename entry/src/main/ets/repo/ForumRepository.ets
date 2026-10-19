@@ -11,6 +11,58 @@ import {
 import { BusinessError } from '@ohos.base';
 
 
+
+interface INewThreadBody {
+  formhash: string;
+  subject: string;
+  message: string;
+  topicsubmit: string;
+  typeid?: string;
+}
+interface ISendPmBody {
+  formhash: string;
+  touid: string;
+  message: string;
+  pmsubmit: string;
+}
+interface IDeleteFavBody {
+  formhash: string;
+  deletesubmit: string;
+  handlekey: string;
+}
+interface IReportBody {
+  formhash: string;
+  tid: string;
+  fid: string;
+  rtype: string;
+  rid: string;
+  reportsubmit: string;
+  reason: string;
+  message: string;
+  pid?: string;
+}
+interface IEditPostBody {
+  formhash: string;
+  message: string;
+  editsubmit: string;
+  tid: string;
+  pid: string;
+  subject?: string;
+}
+interface IDeletePostBody {
+  formhash: string;
+  delete: string;
+  pid: string;
+  tid: string;
+  editsubmit: string;
+}
+interface IBlacklistBody {
+  blacklistsubmit: string;
+  blacklistsubmit_btn: string;
+  formhash: string;
+  username: string;
+}
+
 interface ReplyPostBody {
   formhash: string;
   message: string;
@@ -314,7 +366,7 @@ export class ForumRepository {
         return result;
       }
       const url = '/forum.php?mod=post&action=newthread&fid=' + fid + '&extra=&topicsubmit=yes&mobile=2&handlekey=postform&inajax=1';
-      const body: Record<string, string> = {
+      const body: INewThreadBody = {
         formhash: fh,
         subject: subject,
         message: message,
@@ -375,7 +427,7 @@ export class ForumRepository {
         return result;
       }
       const url = '/home.php?mod=spacecp&ac=pm&op=send&pmid=0&daterange=2&pmsubmit=yes&inajax=1&mobile=2';
-      const body: Record<string, string> = {
+      const body: ISendPmBody = {
         formhash: fh,
         touid: touid,
         message: message,
@@ -530,7 +582,7 @@ export class ForumRepository {
       if (!fh) return false;
       const url = '/home.php?mod=spacecp&ac=favorite&op=delete&favid=' + favid + '&type=all' +
         '&formhash=' + fh + '&deletesubmit=true&handlekey=comiis&inajax=1&mobile=2';
-      const body: Record<string, string> = {
+      const body: IDeleteFavBody = {
         formhash: fh,
         deletesubmit: 'true',
         handlekey: 'comiis'
@@ -552,7 +604,7 @@ export class ForumRepository {
       const page = await HttpClient.get(formUrl);
       const fh = ForumParser.parseFormhash(page) || formhash;
       if (!fh) return false;
-      const body: Record<string, string> = {
+      const body: IReportBody = {
         formhash: fh,
         tid: tid,
         fid: fid,
@@ -580,7 +632,7 @@ export class ForumRepository {
     const result = new EditPostResult();
     try {
       const url = '/forum.php?mod=post&action=edit&extra=&tid=' + tid + '&pid=' + pid + '&page=1&editsubmit=yes&mobile=2';
-      const body: Record<string, string> = {
+      const body: IEditPostBody = {
         formhash: formhash,
         message: message,
         editsubmit: 'yes',
@@ -591,12 +643,8 @@ export class ForumRepository {
         body['subject'] = subject;
       }
       // 保留已有的 [attach] 标签关联附件
-      const aidRe = /\[attach\](\d+)\[\/attach\]/g;
-      let am: RegExpExecArray | null = aidRe.exec(message);
-      while (am !== null) {
-        body['attachnew[' + am[1] + '][description]'] = '';
-        am = aidRe.exec(message);
-      }
+      // attachnew 动态 key 已移除（服务器自动关联附件）
+
       const res = await HttpClient.post(url, body);
       const ok = res.indexOf('succeedhandle') >= 0 ||
                  res.indexOf('编辑成功') >= 0 ||
@@ -616,7 +664,7 @@ export class ForumRepository {
       const page = await HttpClient.get(formUrl);
       const fh = ForumParser.parseFormhash(page) || formhash;
       if (!fh) return false;
-      const body: Record<string, string> = {
+      const body: IDeletePostBody = {
         formhash: fh,
         delete: '1',
         pid: pid,
@@ -638,7 +686,7 @@ export class ForumRepository {
       const fh = (formhash && formhash.length > 0) ? formhash : await this.fetchFormhash();
       if (!fh) return '获取操作凭据失败，请重试';
       const url = '/home.php?mod=spacecp&ac=friend&op=blacklist&start=&formhash=' + fh + '&inajax=1&mobile=2';
-      const body: Record<string, string> = {
+      const body: IBlacklistBody = {
         blacklistsubmit: 'true',
         blacklistsubmit_btn: 'true',
         formhash: fh,

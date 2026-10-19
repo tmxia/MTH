@@ -44,7 +44,7 @@ struct Downloads {
   openThread(item: DownloadedThread) {
     router.pushUrl({
       url: 'pages/ThreadDetail',
-      params: { tid: item.tid, offline: 'true' }
+      params: { tid: item.tid || '', offline: 'true' }
     });
   }
 

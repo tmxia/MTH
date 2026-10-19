@@ -22,7 +22,7 @@ export class DownloadStore {
 
   getItems(): DownloadedThread[] {
     const sorted = this.cache.slice();
-    sorted.sort(function(a: DownloadedThread, b: DownloadedThread): number {
+    sorted.sort((a: DownloadedThread, b: DownloadedThread): number => {
       return (b.savedAt || 0) - (a.savedAt || 0);
     });
     return sorted;
@@ -32,7 +32,7 @@ export class DownloadStore {
     // 先删旧文件（同 tid 替换时）
     for (let i = 0; i < this.cache.length; i++) {
       if (this.cache[i].tid === entry.tid && this.cache[i].uri) {
-        await this.deleteDocumentFile(this.cache[i].uri);
+        if (this.cache[i].uri) { await this.deleteDocumentFile(this.cache[i].uri as string); }
         break;
       }
     }

@@ -35,9 +35,9 @@ struct History {
 
   openItem(item: HistoryItem) {
     if (item.type === 'thread' || !item.type) {
-      router.pushUrl({ url: 'pages/ThreadDetail', params: { tid: item.tid } });
+      router.pushUrl({ url: 'pages/ThreadDetail', params: { tid: item.tid || '' } });
     } else if (item.type === 'user') {
-      router.pushUrl({ url: 'pages/UserProfilePage', params: { uid: item.tid } });
+      router.pushUrl({ url: 'pages/UserProfilePage', params: { uid: item.tid || '' } });
     }
   }
 
