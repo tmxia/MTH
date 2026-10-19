@@ -52,11 +52,22 @@ struct HomeTab {
   }
 
   async loadData() {
-    this.isLoading = true;
-    this.errorMsg = '';
     try {
-      let homeData = await forumRepository.home();
-      this.threads = homeData.hotThreads;
+      this.isLoading = true;
+      let res = await forumRepository.home();
+      
+      if (res && res.hotThreads) {
+        this.threads = res.hotThreads;
+      }
+      if (res && res.hotForums) {
+        this.forums = res.hotForums;
+      }
+    } catch (e) {
+      console.error('Load home error: ' + JSON.stringify(e));
+    } finally {
+      this.isLoading = false;
+    }
+
     } catch (error) {
       this.errorMsg = (error as Error).message || '加载失败';
     } finally {
@@ -140,9 +151,22 @@ struct ForumTab {
   }
 
   async loadData() {
-    this.isLoading = true;
     try {
-      this.groups = await forumRepository.forumGroups();
+      this.isLoading = true;
+      let res = await forumRepository.home();
+      
+      if (res && res.hotThreads) {
+        this.threads = res.hotThreads;
+      }
+      if (res && res.hotForums) {
+        this.forums = res.hotForums;
+      }
+    } catch (e) {
+      console.error('Load home error: ' + JSON.stringify(e));
+    } finally {
+      this.isLoading = false;
+    }
+
     } catch (e) {
       console.error('Load forums failed', e);
     } finally {
@@ -219,11 +243,22 @@ struct ProfileTab {
   }
 
   async loadData() {
-    this.isLoading = true;
     try {
-      this.profile = await forumRepository.me();
-      if (this.profile.isLoggedIn) {
-        this.checkInStatus = await forumRepository.checkInStatus();
+      this.isLoading = true;
+      let res = await forumRepository.home();
+      
+      if (res && res.hotThreads) {
+        this.threads = res.hotThreads;
+      }
+      if (res && res.hotForums) {
+        this.forums = res.hotForums;
+      }
+    } catch (e) {
+      console.error('Load home error: ' + JSON.stringify(e));
+    } finally {
+      this.isLoading = false;
+    }
+
       }
     } catch (e) {
       console.error('Failed to load profile', e);

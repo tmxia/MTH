@@ -208,16 +208,46 @@ export class ForumRepository {
 
   // ===== 以下是发帖、回帖、点赞等高阶操作接口 =====
   
-  async reply(tid: string, message: string, formhash?: string, captcha?: string): Promise<ReplyResult> {
-    return new ReplyResult(); // 需实现 POST 逻辑
+  async reply(tid: string, fid: string, formhash: string, message: string): Promise<ReplyResult> {
+    try {
+      let body = {
+        'formhash': formhash,
+        'message': message,
+        'replysubmit': 'yes',
+        'fid': fid,
+        'tid': tid
+      };
+      let res = await HttpClient.post('/forum.php?mod=post&action=reply&fid=' + fid + '&tid=' + tid + '&reppostsubmit=yes', body);
+      let result = new ReplyResult();
+      result.success = res.includes('回复成功') || res.includes('succeedhandle');
+      result.message = result.success ? '回复成功' : '回复失败';
+      return result;
+    } catch (e) {
+      return new ReplyResult();
+    }
   }
 
-  async likeThread(tid: string, formhash?: string, action?: string | boolean): Promise<LikeResult> {
-    return new LikeResult(); // 需实现 GET 点赞
+  async likeThread(tid: string, formhash: string, isLike: boolean): Promise<LikeResult> {
+    try {
+      let action = isLike ? 'recommend' : 'recommendcancel';
+      let res = await HttpClient.get('/forum.php?mod=misc&action=' + action + '&tid=' + tid + '&formhash=' + formhash);
+      let result = new LikeResult();
+      result.success = res.includes('succeedhandle') || res.includes('操作成功');
+      return result;
+    } catch (e) {
+      return new LikeResult();
+    }
   }
 
-  async favoriteThread(tid: string, formhash?: string): Promise<ReplyResult> {
-    return new ReplyResult(); // 需实现 GET 收藏
+  async favoriteThread(tid: string, formhash: string): Promise<ReplyResult> {
+    try {
+      let res = await HttpClient.get('/home.php?mod=spacecp&ac=favorite&type=thread&id=' + tid + '&formhash=' + formhash);
+      let result = new ReplyResult();
+      result.success = res.includes('收藏成功') || res.includes('succeedhandle');
+      return result;
+    } catch (e) {
+      return new ReplyResult();
+    }
   }
 
   async fetchNewThreadInit(fid?: string): Promise<NewThreadPageData> { return new NewThreadPageData(); }
