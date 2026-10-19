@@ -42,7 +42,7 @@ struct History {
   }
 
   async doDeleteOne(item: HistoryItem) {
-    await historyStore.remove(item.tid, item.type || 'thread');
+    await historyStore.remove(item.tid || '', item.type || 'thread');
     this.refresh();
   }
 

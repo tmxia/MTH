@@ -346,8 +346,7 @@ export class ForumRepository {
         filePath = filePath.substring(7);
       }
       const url = '/misc.php?mod=swfupload&operation=upload&type=image&inajax=yes&infloat=yes&simple=2';
-      const formData: Record<string, string> = { uid: u, hash: h };
-      const body = await HttpClient.uploadMultipart(url, filePath, 'Filedata', 'image.jpg', 'image/jpeg', formData);
+      const body = await HttpClient.uploadMultipart(url, filePath, 'Filedata', 'image.jpg', 'image/jpeg', u, h);
       const parsed = ForumParser.parseUploadResponse(body);
       if (parsed) return parsed;
       console.error('uploadImage: 响应解析失败, body=' + (body || '').substring(0, 200));
@@ -373,7 +372,7 @@ export class ForumRepository {
         topicsubmit: 'yes'
       };
       if (typeId && typeId !== '0') {
-        body['typeid'] = typeId;
+        body.typeid = typeId;
       }
       const res = await HttpClient.post(url, body);
       const ok = res.indexOf('succeedhandle') >= 0 ||
@@ -615,7 +614,7 @@ export class ForumRepository {
         message: (message && message.length > 0) ? message : '该内容涉嫌违规，请核实处理。'
       };
       if (rtype === 'post' && pid) {
-        body['pid'] = pid;
+        body.pid = pid;
       }
       const url = '/misc.php?mod=report&rtype=' + rtype + '&rid=' + rid + '&tid=' + tid + '&fid=' + fid + '&reportsubmit=yes&inajax=1&mobile=2';
       const res = await HttpClient.post(url, body);
@@ -640,7 +639,7 @@ export class ForumRepository {
         pid: pid
       };
       if (subject && subject.length > 0) {
-        body['subject'] = subject;
+        body.subject = subject;
       }
       // 保留已有的 [attach] 标签关联附件
       // attachnew 动态 key 已移除（服务器自动关联附件）

@@ -199,21 +199,22 @@ export class HttpClient {
     fileFieldName: string,
     fileName: string,
     fileMime: string,
-    formData: Record<string, string>
+    uid: string,
+    hash: string
   ): Promise<string> {
     const BOUNDARY = '----MTFBoundary' + Date.now();
     const enc = new util.TextEncoder();
     const chunks: Uint8Array[] = [];
 
-    const keys = Object.keys(formData);
-    for (let i = 0; i < keys.length; i++) {
-      const k = keys[i];
-      const v = formData[k];
-      const part = '--' + BOUNDARY + '\r\n' +
-        'Content-Disposition: form-data; name="' + k + '"\r\n\r\n' +
-        v + '\r\n';
-      chunks.push(enc.encodeInto(part));
-    }
+    // 固定拼 uid 和 hash 两个字段
+    const uidPart = '--' + BOUNDARY + '\r\n' +
+      'Content-Disposition: form-data; name="uid"\r\n\r\n' +
+      uid + '\r\n';
+    chunks.push(enc.encodeInto(uidPart));
+    const hashPart = '--' + BOUNDARY + '\r\n' +
+      'Content-Disposition: form-data; name="hash"\r\n\r\n' +
+      hash + '\r\n';
+    chunks.push(enc.encodeInto(hashPart));
 
     const fileHeader = '--' + BOUNDARY + '\r\n' +
       'Content-Disposition: form-data; name="' + fileFieldName + '"; filename="' + fileName + '"\r\n' +

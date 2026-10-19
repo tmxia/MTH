@@ -41,7 +41,7 @@ struct Drafts {
   }
 
   async doDeleteOne(d: PostDraft) {
-    await DraftStore.remove([d.fid]);
+    await DraftStore.remove([d.fid || '']);
     this.refresh();
   }
 

@@ -49,8 +49,8 @@ struct Downloads {
   }
 
   async doDelete(item: DownloadedThread) {
-    await downloadStore.remove(item.tid);
-    await threadArchiveStore.delete(item.tid);
+    await downloadStore.remove(item.tid || '');
+    await threadArchiveStore.delete(item.tid || '');
     this.refresh();
   }
 
