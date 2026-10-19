@@ -1,12 +1,13 @@
 import request from '@ohos.request';
 import http from '@ohos.net.http';
 import { cookieManager } from './CookieManager';
+import { WafSolver } from './WafSolver';
 
 export class HttpClient {
   public static baseUrl: string = "https://bbs.binmt.cc/";
   private static userAgent: string = "Mozilla/5.0 (Linux; Android 10; HarmonyOS) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36";
 
-  static async request(method: http.RequestMethod, url: string, body?: string | object, extraHeaders?: Record<string, string>): Promise<string> {
+  static async request(method: http.RequestMethod, url: string, body?: string | object, extraHeaders?: Record<string, string>, _wafRetry: boolean = false): Promise<string> {
     let httpRequest = http.createHttp();
     let fullUrl = url.startsWith('http') ? url : HttpClient.baseUrl + url;
     
@@ -71,7 +72,32 @@ export class HttpClient {
           await cookieManager.save(currentCookie + '; ' + newCookieStr);
         }
       }
-      return response.result as string;
+      let text = response.result as string;
+      if (!_wafRetry && WafSolver.looksLikeChallenge(text)) {
+        let wafVal = WafSolver.solve(text);
+        if (wafVal) {
+          let existingCookie = cookieManager.get();
+          // 去除已有 acw_sc__v2，避免重复累积
+          let cleanCookie = '';
+          if (existingCookie) {
+            let parts: string[] = existingCookie.split(';');
+            let kept: string[] = [];
+            for (let pi = 0; pi < parts.length; pi++) {
+              let one: string = parts[pi].trim();
+              if (one && one.indexOf('acw_sc__v2=') !== 0) {
+                kept.push(one);
+              }
+            }
+            cleanCookie = kept.join('; ');
+          }
+          let newCookie = cleanCookie
+            ? cleanCookie + '; acw_sc__v2=' + wafVal
+            : 'acw_sc__v2=' + wafVal;
+          await cookieManager.save(newCookie);
+          return HttpClient.request(method, url, body, extraHeaders, true);
+        }
+      }
+      return text;
     } catch (error) {
       // ArkTS 对 catch 变量极度严格，必须显式转换
       let err = error as Error;
