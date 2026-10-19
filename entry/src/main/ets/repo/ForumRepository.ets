@@ -1,7 +1,7 @@
 import { HttpClient } from '../network/HttpClient';
 import { 
   ForumGroup, Forum, Thread, ForumPage, ThreadPage, Post, 
-  CheckInStatus, CheckInResult, LoginResult, UserProfile, 
+  CheckInStatus, CheckInResult, LoginResult, UserProfile, ReplyResult, LikeResult, 
   SearchResult, HomeData, NoticePage, PmPage, ChatConversation, 
   FavoritePage, FriendUserPage, MyThreadPage, NewThreadPageData, 
   NewThreadResult, EditPostPageData, EditPostResult, ImageUpload 
@@ -32,7 +32,7 @@ export class ForumRepository {
       let res = await HttpClient.get('/');
       // TODO: 调用 ForumParser 解析 HTML
       return new HomeData();
-    } catch (e) {
+    } catch (e: Error) {
       console.error('home error', e);
       return new HomeData();
     }
@@ -42,7 +42,7 @@ export class ForumRepository {
     try {
       let res = await HttpClient.get('/forum.php?gid=1');
       return []; // TODO: 解析板块
-    } catch (e) {
+    } catch (e: Error) {
       return [];
     }
   }
@@ -51,7 +51,7 @@ export class ForumRepository {
     try {
       let res = await HttpClient.get(`/thread-${tid}-${page}-1.html`);
       return new ThreadPage(); // TODO: 解析详情
-    } catch (e) {
+    } catch (e: Error) {
       return new ThreadPage();
     }
   }
@@ -75,7 +75,7 @@ export class ForumRepository {
         return { success: true, message: '登录成功' } as LoginResult;
       }
       return { success: false, message: '账号或密码错误' } as LoginResult;
-    } catch (e) {
+    } catch (e: Error) {
       return { success: false, message: '网络错误' } as LoginResult;
     }
   }
@@ -86,7 +86,7 @@ export class ForumRepository {
       let hasSigned = res.includes('已签到') || res.includes('今日已签');
       let formhash = this.extractFormhash(res);
       return { hasSigned, formhash } as CheckInStatus;
-    } catch (e) {
+    } catch (e: Error) {
       return { hasSigned: false } as CheckInStatus;
     }
   }
@@ -98,7 +98,7 @@ export class ForumRepository {
         return { success: true, message: '签到成功' } as CheckInResult;
       }
       return { success: false, message: '签到失败' } as CheckInResult;
-    } catch (e) {
+    } catch (e: Error) {
       return { success: false, message: '网络错误' } as CheckInResult;
     }
   }
@@ -111,9 +111,9 @@ export class ForumRepository {
 
   // 以下为占位方法，保持 UI 编译通过
   async me(): Promise<UserProfile> { return new UserProfile(); }
-  async reply(tid: string, message: string, formhash?: string, captcha?: string): Promise<any> { return {}; }
-  async likeThread(tid: string, formhash?: string, action?: string | boolean): Promise<any> { return {}; }
-  async favoriteThread(tid: string, formhash?: string): Promise<any> { return {}; }
+  async reply(tid: string, message: string, formhash?: string, captcha?: string): Promise<ReplyResult> { return new ReplyResult(); }
+  async likeThread(tid: string, formhash?: string, action?: string | boolean): Promise<LikeResult> { return new LikeResult(); }
+  async favoriteThread(tid: string, formhash?: string): Promise<ReplyResult> { return new ReplyResult(); }
   async forumPage(fid: string, page?: number, sort?: ForumSort | string): Promise<ForumPage> { return new ForumPage(); }
   async notices(tab?: string): Promise<NoticePage> { return new NoticePage(); }
   async myThreads(page?: number): Promise<MyThreadPage> { return new MyThreadPage(); }
@@ -125,7 +125,7 @@ export class ForumRepository {
   async newThread(fid: string, subject: string, message: string, typeId?: string, formhash?: string): Promise<NewThreadResult> { return new NewThreadResult(); }
   async fetchPms(page?: number): Promise<PmPage> { return new PmPage(); }
   async fetchChat(touid: string): Promise<ChatConversation> { return new ChatConversation(); }
-  async sendPm(touid: string, message: string, formhash?: string): Promise<any> { return {}; }
+  async sendPm(touid: string, message: string, formhash?: string): Promise<ReplyResult> { return new ReplyResult(); }
   async userThreads(uid: string, page?: number): Promise<MyThreadPage> { return new MyThreadPage(); }
 }
 export const forumRepository = ForumRepository.getInstance();

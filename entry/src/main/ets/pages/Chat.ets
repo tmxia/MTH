@@ -26,7 +26,7 @@ struct Chat {
     this.isLoading = true;
     try {
       this.conv = await forumRepository.fetchChat(this.touid);
-    } catch (e) {
+    } catch (e: Error) {
       console.error(e);
     } finally {
       this.isLoading = false;
@@ -45,7 +45,7 @@ struct Chat {
       } else {
         promptAction.showToast({ message: '发送失败' });
       }
-    } catch (e) {
+    } catch (e: Error) {
       promptAction.showToast({ message: '网络异常' });
     } finally {
       this.isSending = false;
