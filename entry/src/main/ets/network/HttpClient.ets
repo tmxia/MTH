@@ -6,7 +6,7 @@ export class HttpClient {
   public static baseUrl: string = "https://bbs.binmt.cc/";
   private static userAgent: string = "Mozilla/5.0 (Linux; Android 10; HarmonyOS) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36";
 
-  static async request(method: http.RequestMethod, url: string, body?: string | Record<string, string>, extraHeaders?: Record<string, string>): Promise<string> {
+  static async request(method: http.RequestMethod, url: string, body?: string | object, extraHeaders?: Record<string, string>): Promise<string> {
     let httpRequest = http.createHttp();
     let fullUrl = url.startsWith('http') ? url : HttpClient.baseUrl + url;
     
@@ -86,7 +86,7 @@ export class HttpClient {
     return HttpClient.request(http.RequestMethod.GET, url, undefined, headers);
   }
 
-  static post(url: string, body: string | Record<string, string>, headers?: Record<string, string>): Promise<string> {
+  static post(url: string, body: string | object, headers?: Record<string, string>): Promise<string> {
     return HttpClient.request(http.RequestMethod.POST, url, body, headers);
   }
 

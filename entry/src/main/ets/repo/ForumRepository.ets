@@ -10,6 +10,25 @@ import {
 } from '../models/Models';
 import { BusinessError } from '@ohos.base';
 
+
+interface ReplyPostBody {
+  formhash: string;
+  message: string;
+  replysubmit: string;
+  fid: string;
+  tid: string;
+}
+
+interface LoginPostBody {
+  username: string;
+  password: string;
+  fastloginfield: string;
+  cookietime: string;
+  answer?: string;
+  seccodeverify?: string;
+}
+
+
 export enum ForumSort {
   LATEST = "最新",
   HOT = "热门",
@@ -81,14 +100,14 @@ export class ForumRepository {
 
   async login(username: string, password: string, answer?: string, seccode?: string): Promise<LoginResult> {
     try {
-      let body: Record<string, string> = {
+      let body: LoginPostBody = {
         'username': username,
         'password': password,
         'fastloginfield': 'username',
         'cookietime': '2592000'
       };
-      if (answer) body['answer'] = answer;
-      if (seccode) body['seccodeverify'] = seccode;
+      if (answer) body.answer = answer;
+      if (seccode) body.seccodeverify = seccode;
 
       let res = await HttpClient.post('/member.php?mod=logging&action=login&loginsubmit=yes&handlekey=login&loginhash=XXXX', body);
       
@@ -210,7 +229,7 @@ export class ForumRepository {
   
   async reply(tid: string, fid: string, formhash: string, message: string): Promise<ReplyResult> {
     try {
-      let body: Record<string, string> = {
+      let body: ReplyPostBody = {
         formhash: formhash,
         message: message,
         replysubmit: 'yes',
