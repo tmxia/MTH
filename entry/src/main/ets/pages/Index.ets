@@ -19,8 +19,8 @@ struct Index {
     try {
       let res = await forumRepository.home();
       this.threads = res.hotThreads;
-    } catch (e: Error) {
-      this.errorMsg = e.message;
+    } catch (e) {
+      this.errorMsg = (e as Error).message;
     } finally {
       this.isLoading = false;
     }

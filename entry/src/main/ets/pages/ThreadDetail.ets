@@ -32,8 +32,8 @@ struct ThreadDetail {
         newMap.set(post.pid, ForumParser.parseRichText(post.contentHtml));
       }
       this.parsedRichText = newMap;
-    } catch (e: Error) {
-      this.errorMsg = e.message;
+    } catch (e) {
+      this.errorMsg = (e as Error).message;
     } finally {
       this.isLoading = false;
     }

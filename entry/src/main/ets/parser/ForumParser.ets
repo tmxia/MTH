@@ -1,4 +1,4 @@
-import { Thread, ThreadPage, Post, RichTextNode, ActionState } from '../models/Models';
+import { Thread, ThreadPage, Post, RichTextNode, ActionState, ForumGroup, ForumPage } from '../models/Models';
 
 export class ForumParser {
   static stripHtmlTags(html: string): string {
@@ -17,33 +17,26 @@ export class ForumParser {
     return match ? parseInt(match[1]) : null;
   }
 
-  static parseForumList(html: string): any[] { return []; }
-  static parseForumPage(html: string, page: number): any { return {}; }
+  static parseForumList(html: string): Array<ForumGroup> { return []; }
+  static parseForumPage(html: string, page: number): ForumPage { return new ForumPage(); }
 
   static parseThreadPage(html: string, page: number): ThreadPage {
     let tp = new ThreadPage();
     tp.page = page;
     tp.posts = [];
-    
-    let titleMatch = this.extractFirstMatch(html, /<title>(.*?)<\/title>/i);
+
+    let titleMatch = ForumParser.extractFirstMatch(html, /<title>(.*?)<\/title>/i);
     if (titleMatch) {
       tp.subject = titleMatch.replace('- MT论坛', '').trim();
     }
-    
-    let tidMatch = this.extractFirstMatch(html, /thread-(\d+)/);
+
+    let tidMatch = ForumParser.extractFirstMatch(html, /thread-(\d+)/);
     if (tidMatch) {
       tp.tid = tidMatch;
     }
-    
-    let formhashMatch = this.extractFirstMatch(html, /formhash["']?\s+value=["']([0-9a-fA-F]+)/i);
-    if (formhashMatch) {
-      tp.formhash = formhashMatch;
-    }
-    
-    let authorIdMatch = this.extractFirstMatch(html, /authorid\s*=\s*['"](\d+)['"]/i);
-    if (authorIdMatch) {
-      tp.opUid = authorIdMatch;
-    }
+
+    tp.formhash = ForumParser.extractFirstMatch(html, /formhash["']?\s+value=["']([0-9a-fA-F]+)/i);
+    tp.opUid = ForumParser.extractFirstMatch(html, /authorid\s*=\s*['"](\d+)['"]/i);
 
     let parts = html.split('<div class="comiis_postli"');
     for (let i = 1; i < parts.length; i++) {
@@ -52,49 +45,38 @@ export class ForumParser {
       if (nextDivIndex !== -1) {
         liHtml = liHtml.substring(0, nextDivIndex);
       }
-      
-      let post = this.parsePost(liHtml, tp.opUid);
+
+      let post = ForumParser.parsePost(liHtml, tp.opUid);
       if (post) {
         tp.posts.push(post);
       }
     }
-    
     return tp;
   }
 
   static parsePost(liHtml: string, opUid: string | null): Post | null {
     let post = new Post();
-    
-    let pidMatch = this.extractFirstMatch(liHtml, /id="pid(\d+)"/i);
+    let pidMatch = ForumParser.extractFirstMatch(liHtml, /id="pid(\d+)"/i);
     if (!pidMatch) return null;
     post.pid = pidMatch;
 
-    let authorMatch = this.extractFirstMatch(liHtml, /<a[^>]*class="[^"]*xw1[^"]*"[^>]*>(.*?)<\/a>/i) || this.extractFirstMatch(liHtml, /<div class="comiis_postli_topv1">[\s\S]*?<a[^>]*>(.*?)<\/a>/i);
-    if (authorMatch) post.authorName = this.stripHtmlTags(authorMatch);
+    let authorMatch = ForumParser.extractFirstMatch(liHtml, /<a[^>]*class="[^"]*xw1[^"]*"[^>]*>(.*?)<\/a>/i) || ForumParser.extractFirstMatch(liHtml, /<div class="comiis_postli_topv1">[\s\S]*?<a[^>]*>(.*?)<\/a>/i);
+    if (authorMatch) post.authorName = ForumParser.stripHtmlTags(authorMatch);
 
-    let uidMatch = this.extractFirstMatch(liHtml, /href="[^"]*uid=(\d+)[^"]*"/i);
-    if (uidMatch) post.authorUid = uidMatch;
+    post.authorUid = ForumParser.extractFirstMatch(liHtml, /href="[^"]*uid=(\d+)[^"]*"/i);
+    post.avatarUrl = ForumParser.extractFirstMatch(liHtml, /<img[^>]*src="([^"]+)"[^>]*class="[^"]*avatar[^"]*"/i) || ForumParser.extractFirstMatch(liHtml, /<div class="avatar">[\s\S]*?<img[^>]*src="([^"]+)"/i);
+    post.timeText = ForumParser.extractFirstMatch(liHtml, /<span[^>]*title="([^"]+)"[^>]*>.*?发表于/i);
 
-    let avatarMatch = this.extractFirstMatch(liHtml, /<img[^>]*src="([^"]+)"[^>]*class="[^"]*avatar[^"]*"/i) || this.extractFirstMatch(liHtml, /<div class="avatar">[\s\S]*?<img[^>]*src="([^"]+)"/i);
-    if (avatarMatch) post.avatarUrl = avatarMatch;
-
-    let timeMatch = this.extractFirstMatch(liHtml, /<span[^>]*title="([^"]+)"[^>]*>.*?发表于/i);
-    if (timeMatch) post.timeText = timeMatch;
-
-    let floorTextMatch = this.extractFirstMatch(liHtml, /<span class="f_d y">(.*?)<\/span>/i);
+    let floorTextMatch = ForumParser.extractFirstMatch(liHtml, /<span class="f_d y">(.*?)<\/span>/i);
     if (floorTextMatch) {
-      post.floorLabel = this.stripHtmlTags(floorTextMatch);
+      post.floorLabel = ForumParser.stripHtmlTags(floorTextMatch);
       let numMatch = post.floorLabel.match(/^(\d+)/);
-      if (numMatch) {
-        post.floor = parseInt(numMatch[1]);
-      }
+      if (numMatch) post.floor = parseInt(numMatch[1]);
     }
 
-    if (opUid && post.authorUid === opUid) {
-      post.isOp = true;
-    }
+    if (opUid && post.authorUid === opUid) post.isOp = true;
 
-    let contentMatch = this.extractFirstMatch(liHtml, /<td[^>]*class="[^"]*t_f[^"]*"[^>]*>([\s\S]*?)<\/td>/i) || this.extractFirstMatch(liHtml, /<div class="comiis_postmessage">([\s\S]*?)<\/div>/i);
+    let contentMatch = ForumParser.extractFirstMatch(liHtml, /<td[^>]*class="[^"]*t_f[^"]*"[^>]*>([\s\S]*?)<\/td>/i) || ForumParser.extractFirstMatch(liHtml, /<div class="comiis_postmessage">([\s\S]*?)<\/div>/i);
     if (contentMatch) {
       post.contentHtml = contentMatch.trim();
       if (post.contentHtml.includes('回复可见') || post.contentHtml.includes('隐藏内容') || post.contentHtml.includes('查看本帖隐藏内容')) {
@@ -103,7 +85,6 @@ export class ForumParser {
     } else {
       post.contentHtml = "<p>暂无内容</p>";
     }
-
     return post;
   }
 
@@ -119,7 +100,7 @@ export class ForumParser {
                    .replace(/&lt;/g, '<')
                    .replace(/&gt;/g, '>')
                    .replace(/\n{3,}/g, '\n\n');
-                   
+
     let textTrim = text.trim();
     if (textTrim.length > 0) {
       let node = new RichTextNode();

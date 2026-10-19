@@ -93,12 +93,12 @@ export class ForumRepository {
       let res = await HttpClient.post('/member.php?mod=logging&action=login&loginsubmit=yes&handlekey=login&loginhash=XXXX', body);
       
       if (res.includes('欢迎您回来') || res.includes('登录成功')) {
-        return { success: true, message: '登录成功' } as LoginResult;
+        let resObj = new LoginResult(); resObj.success = true; resObj.message = '登录成功'; return resObj;
       }
-      return { success: false, message: '账号或密码错误' } as LoginResult;
+      let resObj = new LoginResult(); resObj.success = false; resObj.message = '账号或密码错误'; return resObj;
     } catch (e) {
       let err = e as BusinessError;
-      return { success: false, message: '网络错误' } as LoginResult;
+      let resObj = new LoginResult(); resObj.success = false; resObj.message = '网络错误'; return resObj;
     }
   }
 
