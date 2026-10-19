@@ -43,6 +43,9 @@ struct Index {
         Text('日志').fontSize(14).fontColor('#4D6BFE')
           .padding({ left: 8, right: 8, top: 6, bottom: 6 })
           .onClick(() => router.pushUrl({ url: 'pages/Logs' }))
+        Text('@').fontSize(14).fontColor('#4D6BFE')
+          .padding({ left: 8, right: 8, top: 6, bottom: 6 })
+          .onClick(() => router.pushUrl({ url: 'pages/AtUserPicker' }))
         Button('刷新').onClick(() => {
           this.loadData();
         })

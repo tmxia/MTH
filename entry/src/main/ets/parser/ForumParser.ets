@@ -1,5 +1,6 @@
 import { Thread, ThreadPage, Post, RichTextNode, ActionState, ForumGroup, ForumPage } from '../models/Models';
 
+import { AtUser } from '../models/Models';
 export class ForumParser {
   static stripHtmlTags(html: string): string {
     if (!html) return "";
@@ -118,4 +119,75 @@ export class ForumParser {
   static parseFollowState(html: string): boolean[] {
     return [false, false];
   }
+
+  // ===== @ 用户相关解析 =====
+
+  // misc.php?mod=getatuser&inajax=1 返回 JS 数组，提取用户名
+  static parseAtUsers(html: string): string[] {
+    const names: string[] = [];
+    if (!html) return names;
+    // 格式：{'uid':'123','username':'xxx'} 或 {'uid':123,'name':'xxx'}
+    const re1 = /['"]username['"]\s*:\s*['"]([^'"]+)['"]/g;
+    let m;
+    while ((m = re1.exec(html)) !== null) {
+      if (m[1] && m[1].indexOf('\\') < 0) names.push(m[1]);
+    }
+    if (names.length === 0) {
+      const re2 = /['"]name['"]\s*:\s*['"]([^'"]+)['"]/g;
+      while ((m = re2.exec(html)) !== null) {
+        if (m[1]) names.push(m[1]);
+      }
+    }
+    // 去重
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const n of names) {
+      if (!seen.has(n)) { seen.add(n); out.push(n); }
+    }
+    return out;
+  }
+
+  // home.php 好友/关注页 / search.php 用户搜索页，提取 AtUser 列表
+  static parseAtUserList(html: string): AtUser[] {
+    const list: AtUser[] = [];
+    if (!html) return list;
+    // 每个用户块：含 uid 链接 + 用户名 + 可选头像
+    // 常见形态：<a href="...space&uid=123...">...<img src="avatar">...<strong>name</strong>
+    const blockRe = /space(?:&amp;|&)uid=(\d+)[\s\S]{0,800}?<\/(?:li|dl|div)>/g;
+    let m;
+    while ((m = blockRe.exec(html)) !== null) {
+      const block = m[0];
+      const uid = m[1];
+      // 从块内提取用户名
+      let name = '';
+      const nameRe = /<strong[^>]*>([^<]+)<\/strong>/;
+      const nm = nameRe.exec(block);
+      if (nm) { name = nm[1].trim(); }
+      if (!name) {
+        // 退化：找 alt 属性
+        const altRe = /alt=["']([^"']+)["']/;
+        const am = altRe.exec(block);
+        if (am) name = am[1].trim();
+      }
+      if (!name) continue;
+      // 头像
+      let avatar = '';
+      const avRe = /<img[^>]+src=["']([^"']+)["']/;
+      const avm = avRe.exec(block);
+      if (avm) avatar = avm[1];
+      // 副标题：版块/等级/状态
+      let subtitle = '';
+      const subRe = /<span[^>]*class=["'][^"']*(?:xg1|note)[^"']*["'][^>]*>([^<]+)<\/span>/;
+      const sm = subRe.exec(block);
+      if (sm) subtitle = sm[1].trim();
+      const u = new AtUser();
+      u.uid = uid;
+      u.name = name;
+      u.avatarUrl = avatar || '';
+      u.subtitle = subtitle || '';
+      list.push(u);
+    }
+    return list;
+  }
+
 }

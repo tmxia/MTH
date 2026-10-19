@@ -17,6 +17,7 @@
     "pages/History",
     "pages/Downloads",
     "pages/Logs",
-    "pages/LogDetail"
+    "pages/LogDetail",
+    "pages/AtUserPicker"
   ]
 }

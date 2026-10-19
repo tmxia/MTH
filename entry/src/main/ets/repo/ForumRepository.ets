@@ -7,7 +7,7 @@ import {
   FavoritePage, FriendUserPage, MyThreadPage, NewThreadPageData, 
   NewThreadResult, EditPostPageData, EditPostResult, ImageUpload,
   ReplyResult, LikeResult
-} from '../models/Models';
+, AtUser} from '../models/Models';
 import { BusinessError } from '@ohos.base';
 
 
@@ -275,5 +275,54 @@ export class ForumRepository {
   async fetchPms(page?: number): Promise<PmPage> { return new PmPage(); }
   async fetchChat(touid: string): Promise<ChatConversation> { return new ChatConversation(); }
   async sendPm(touid: string, message: string, formhash?: string): Promise<ReplyResult> { return new ReplyResult(); }
+
+  // ===== @ 用户相关 =====
+
+  async fetchAtUsers(): Promise<Array<string>> {
+    try {
+      let html = await HttpClient.get('/misc.php?mod=getatuser&inajax=1');
+      return ForumParser.parseAtUsers(html);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async fetchFriends(): Promise<Array<AtUser>> {
+    return this.atUserPages('home.php?mod=space&do=friend&page=');
+  }
+
+  async fetchFollows(): Promise<Array<AtUser>> {
+    return this.atUserPages('home.php?mod=follow&do=following&page=');
+  }
+
+  async searchUsers(keyword: string): Promise<Array<AtUser>> {
+    const kw = keyword.trim();
+    if (!kw) return [];
+    try {
+      const encoded = encodeURIComponent(kw);
+      let html = await HttpClient.get('/search.php?mod=user&searchsubmit=yes&srchtxt=' + encoded + '&mobile=2');
+      return ForumParser.parseAtUserList(html);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  private async atUserPages(prefix: string): Promise<Array<AtUser>> {
+    const all: AtUser[] = [];
+    const MAX_PAGES = 10;
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      try {
+        let html = await HttpClient.get('/' + prefix + page + '&mobile=2');
+        let batch = ForumParser.parseAtUserList(html);
+        if (batch.length === 0) break;
+        for (const u of batch) all.push(u);
+        if (batch.length < 20) break;
+      } catch (e) {
+        break;
+      }
+    }
+    return all;
+  }
+
 }
 export const forumRepository = ForumRepository.getInstance();
