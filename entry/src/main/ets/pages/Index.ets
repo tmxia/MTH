@@ -37,6 +37,9 @@ struct Index {
         Text('历史').fontSize(14).fontColor('#4D6BFE')
           .padding({ left: 8, right: 8, top: 6, bottom: 6 })
           .onClick(() => router.pushUrl({ url: 'pages/History' }))
+        Text('下载').fontSize(14).fontColor('#4D6BFE')
+          .padding({ left: 8, right: 8, top: 6, bottom: 6 })
+          .onClick(() => router.pushUrl({ url: 'pages/Downloads' }))
         Button('刷新').onClick(() => {
           this.loadData();
         })
