@@ -149,6 +149,18 @@ struct Settings {
             }
             .width('100%').padding({ left: 14, right: 14, top: 10, bottom: 10 })
             .onClick(() => this.confirmClearCache())
+
+            Divider().color('#EEEEEE').margin({ left: 14, right: 14 })
+
+            Row() {
+              Column({ space: 2 }) {
+                Text('人机验证').fontSize(15).fontColor('#333')
+                Text('网络请求被 WAF 拦截时手动通过验证').fontSize(11).fontColor('#999')
+              }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+              Text('>').fontSize(14).fontColor('#CCC')
+            }
+            .width('100%').padding({ left: 14, right: 14, top: 10, bottom: 10 })
+            .onClick(() => router.pushUrl({ url: 'pages/WafVerification' }))
           }
           .width('100%').backgroundColor('#FFFFFF').borderRadius(8)
 

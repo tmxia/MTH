@@ -96,6 +96,8 @@ struct ThreadDetail {
       snapshot.opUid = firstPage.opUid || '';
       snapshot.totalReplies = firstPage.totalReplies || 0;
       snapshot.posts = allPosts;
+      promptAction.showToast({ message: '正在下载图片…' });
+      await threadArchiveStore.inlineImages(snapshot);
       await threadArchiveStore.archive(this.currentTid, snapshot);
 
       const entry = new DownloadedThread();
