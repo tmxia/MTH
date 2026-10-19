@@ -50,7 +50,7 @@ export class ForumRepository {
   async threadPage(tid: string, page: number = 1): Promise<ThreadPage> {
     try {
       let res = await HttpClient.get(`/thread-${tid}-${page}-1.html`);
-      return new ThreadPage(); // TODO: 解析详情
+      return ForumParser.parseThreadPage(res, page);
     } catch (e) {
       return new ThreadPage();
     }

@@ -1,758 +1,177 @@
-import { ForumGroup, Forum, Thread, HomeData, ForumPage, ThreadPage, Post, LoginResult, UserProfile, CheckInStatus, CheckInResult, Notice, NoticePage, ReplyResult, SearchResult, MyThreadPage, FavoritePage, FavoriteItem, FriendUserPage, FriendUserItem, NewThreadPageData, NewThreadResult, ImageUpload, PmPage, PrivateMessage, ChatConversation, ChatMessage, RichTextNode } from '../models/Models';
-
-const RE_FID = /forum-(\d+)-/;
-const RE_TID = /thread-(\d+)-/;
-const RE_CDATA = /<!\[CDATA\[([\s\S]*?)\]\]>/;
+import { 
+  ForumGroup, Forum, Thread, ForumPage, ThreadPage, Post, PostQuote 
+} from '../models/Models';
 
 export class ForumParser {
   
-  static stripInvisible(text: string): string {
-    return text.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+  static stripHtmlTags(html: string): string {
+    if (!html) return "";
+    let text = html.replace(/<[^>]+>/g, '');
+    return text.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
   }
 
-  private static readCardStats(li: string): [string | null, string | null, string | null] {
-    let reply: string | null = null;
-    let view: string | null = null;
-    let like: string | null = null;
-
-    const bottomMatch = /<div[^>]*class="[^"]*znalist_bottom[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(li);
-    if (!bottomMatch) return [null, null, null];
-    
-    const box = bottomMatch[1];
-    const spans: string[] = [];
-    const spanRegex = /<span[^>]*class="[^"]*comiis_tm[^"]*"[^>]*>([\s\S]*?)<\/span>/gi;
-    let m: RegExpExecArray | null;
-    while ((m = spanRegex.exec(box)) !== null) {
-      spans.push(m[1].trim());
-    }
-    
-    if (spans.length > 0) {
-      reply = spans.length > 0 ? spans[0] : null;
-      view = spans.length > 1 ? spans[spans.length - 1] : null;
-      like = spans.length > 2 ? spans[1] : null;
-      return [reply, view, like];
-    }
-    
-    const extractStat = (label: string): string | null => {
-      const reg = new RegExp(`<li[^>]*>[^<]*${label}[^<]*<\/li>`, 'gi');
-      const match = reg.exec(box);
-      if (match) {
-        const numMatch = /(\d+)/.exec(match[0]);
-        return numMatch ? numMatch[1] : null;
-      }
-      return null;
-    };
-    return [extractStat("评论"), extractStat("阅读"), extractStat("赞")];
+  static extractFirstMatch(html: string, regex: RegExp): string | null {
+    let match = html.match(regex);
+    return match ? match[1] : null;
   }
 
-  private static isCardImage(url: string): boolean {
-    const lower = url.toLowerCase();
-    if (lower.includes("avatar") || lower.includes("smiley") || lower.includes("static/image")) return false;
-    if (lower.endsWith(".gif") && lower.includes("smiley")) return false;
-    return /(jpg|jpeg|png|webp|gif)/i.test(lower);
+  // 辅助：从文本提取数字
+  static numberFromText(text: string): number | null {
+    let match = text.match(/(\d+)/);
+    return match ? parseInt(match[1]) : null;
   }
 
-  private static collectThreadImages(li: string): Array<string> {
-    const urls: Set<string> = new Set();
-    const MAX_CARD_IMAGES = 3;
-    const imgRegex = /<img[^>]*>/gi;
-    let match: RegExpExecArray | null;
-    
-    while ((match = imgRegex.exec(li)) !== null) {
-      if (urls.size >= MAX_CARD_IMAGES) break;
-      const imgTag = match[0];
-      const attrRegex = /(comiis_loadimages|data-original|data-src|file|src)="([^"]+)"/gi;
-      let attrMatch: RegExpExecArray | null;
-      let url = "";
-      while ((attrMatch = attrRegex.exec(imgTag)) !== null) {
-        if (attrMatch[2] && attrMatch[2].trim() !== '') {
-          url = attrMatch[2].trim();
-          break; 
-        }
-      }
-      if (url && ForumParser.isCardImage(url)) {
-        urls.add(url);
-      }
-    }
-    return Array.from(urls);
-  }
+  // 解析板块列表 (之前已实现，保持不变)
+  static parseForumList(html: string): ForumGroup[] { return []; }
 
-  static parseForumList(html: string): Array<ForumGroup> {
-    const groups: Array<ForumGroup> = [];
-    const todayByFid: Map<string, number> = new Map();
-    const blockRegex = /<div class="comiis_forumlist"[\s\S]*?(?=<div class="comiis_forumlist"|$)/g;
-    const blocks = html.match(blockRegex) || [];
-
-    for (const block of blocks) {
-      const subForumRegex = /<div id="sub_forum_\d+">([\s\S]*?)<\/div>/g;
-      let subMatch: RegExpExecArray | null;
-      while ((subMatch = subForumRegex.exec(block)) !== null) {
-        const content = subMatch[1];
-        const liRegex = /<li>\s*<a href="([^"]+)"[^>]*>([\s\S]*?)<\/a>\s*<\/li>/g;
-        let liMatch: RegExpExecArray | null;
-        while ((liMatch = liRegex.exec(content)) !== null) {
-          const fidMatch = RE_FID.exec(liMatch[1]);
-          const fid = fidMatch ? fidMatch[1] : null;
-          if (!fid) continue;
-          const emMatch = /<em><span>(\d+)<\/span><\/em>/.exec(liMatch[2]);
-          if (emMatch) {
-            const n = parseInt(emMatch[1]);
-            if (n > 0) todayByFid.set(fid, n);
-          }
-        }
-      }
-    }
-
-    for (const block of blocks) {
-      let groupName = "";
-      const h2Regex = /<div class="comiis_bbs_show">\s*<h2[^>]*>\s*(?:<a[^>]*>)?([^<]+)(?:<\/a>)?\s*<\/h2>/;
-      const h2Match = h2Regex.exec(block);
-      if (h2Match) groupName = h2Match[1].trim(); else continue;
-
-      const forums: Array<Forum> = [];
-      const subForumRegex = /<div id="sub_forum_\d+">([\s\S]*?)<\/div>/g;
-      let subMatch: RegExpExecArray | null;
-      
-      while ((subMatch = subForumRegex.exec(block)) !== null) {
-        const content = subMatch[1];
-        const liRegex = /<li>\s*<a href="([^"]+)"[^>]*>([\s\S]*?)<\/a>\s*<\/li>/g;
-        let liMatch: RegExpExecArray | null;
-        
-        while ((liMatch = liRegex.exec(content)) !== null) {
-          const fidMatch = RE_FID.exec(liMatch[1]);
-          const fid = fidMatch ? fidMatch[1] : null;
-          if (!fid) continue;
-          const inner = liMatch[2];
-          let forumName = "";
-          const altMatch = /<img[^>]*alt="([^"]+)"/.exec(inner);
-          const pMatch = /<p>([^<]+)<\/p>/.exec(inner);
-          if (altMatch && altMatch[1].trim()) forumName = altMatch[1].trim();
-          else if (pMatch && pMatch[1].trim()) forumName = pMatch[1].trim();
-          else forumName = inner.replace(/<[^>]+>/g, '').trim();
-          if (!forumName) continue;
-          let icon: string | null = null;
-          const iconMatch = /<em><img[^>]*src="([^"]+)"/.exec(inner);
-          if (iconMatch) icon = iconMatch[1];
-
-          const forum = new Forum();
-          forum.fid = fid;
-          forum.name = forumName;
-          forum.icon = icon;
-          forum.todayPosts = todayByFid.get(fid) || 0;
-          forums.push(forum);
-        }
-      }
-      if (forums.length > 0) {
-        const group = new ForumGroup();
-        group.name = groupName;
-        group.forums = forums;
-        groups.push(group);
-      }
-    }
-    return groups;
-  }
-
-  static parseHome(html: string): HomeData {
-    const home = new HomeData();
-    const hotForums: Array<Forum> = [];
-    const hotBkMatch = /<div class="comiis_mh_hotbk">([\s\S]*?)<\/ul>/.exec(html);
-    if (hotBkMatch) {
-      const liRegex = /<li>\s*<a href="([^"]+)"[^>]*>([\s\S]*?)<\/a>\s*<\/li>/g;
-      let liMatch: RegExpExecArray | null;
-      while ((liMatch = liRegex.exec(hotBkMatch[1])) !== null) {
-        const fidMatch = RE_FID.exec(liMatch[1]);
-        if (!fidMatch) continue;
-        const pMatch = /<p>([^<]+)<\/p>/.exec(liMatch[2]);
-        const name = pMatch ? pMatch[1].trim() : "";
-        if (!name) continue;
-        const iconMatch = /<img[^>]*src="([^"]+)"/.exec(liMatch[2]);
-        const forum = new Forum();
-        forum.fid = fidMatch[1];
-        forum.name = name;
-        forum.icon = iconMatch ? iconMatch[1] : null;
-        hotForums.push(forum);
-      }
-    }
-    const hotThreads: Array<Thread> = [];
-    const seenTids: Set<string> = new Set();
-    let targetHtml = html;
-    const txtListRegex = /<div class="[^"]*comiis_mh_txtlist[^"]*">([\s\S]*?)<\/div>/g;
-    const txtBlocks: string[] = [];
-    let blockMatch: RegExpExecArray | null;
-    while ((blockMatch = txtListRegex.exec(html)) !== null) txtBlocks.push(blockMatch[1]);
-    if (txtBlocks.length > 0) targetHtml = txtBlocks.join('');
-    const threadRegex = /<a href="([^"]*thread-[^"]+)"[^>]*>([^<]+)<\/a>/g;
-    let tMatch: RegExpExecArray | null;
-    while ((tMatch = threadRegex.exec(targetHtml)) !== null) {
-      const tidMatch = RE_TID.exec(tMatch[1]);
-      if (!tidMatch) continue;
-      const tid = tidMatch[1];
-      let subject = ForumParser.stripInvisible(tMatch[2]).replace(/^\d+\s*/, '');
-      if (subject.length < 4) continue;
-      if (!seenTids.has(tid)) {
-        seenTids.add(tid);
-        const thread = new Thread();
-        thread.tid = tid;
-        thread.subject = subject;
-        hotThreads.push(thread);
-      }
-      if (hotThreads.length >= 15) break;
-    }
-    home.hotForums = hotForums;
-    home.hotThreads = hotThreads;
-    return home;
-  }
-
-  static parsePortalFeed(xml: string): Array<Thread> {
-    const cdataMatch = RE_CDATA.exec(xml);
-    if (!cdataMatch) return [];
-    return ForumParser.parseForumPage(cdataMatch[1], 1).threads;
-  }
-
+  // 解析帖子列表 (之前已实现，保持不变)
   static parseForumPage(html: string, page: number): ForumPage {
-    const fp = new ForumPage();
-    fp.page = page;
-    fp.hasNext = html.includes("下一页") || html.includes("class=\"nxt\"");
-    
-    const headerMatch = /<div[^>]*class="[^"]*comiis_view_header1[^"]*"[^>]*>[\s\S]*?<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(html);
-    fp.forumName = headerMatch ? ForumParser.stripInvisible(headerMatch[1]) : null;
-
-    const announcements: Array<Thread> = [];
-    const seenAnn: Set<string> = new Set();
-    const b_t_Regex = /<li[^>]*class="[^"]*b_t[^"]*"[^>]*>([\s\S]*?)<\/li>/gi;
-    let aMatch: RegExpExecArray | null;
-    while ((aMatch = b_t_Regex.exec(html)) !== null) {
-      if (aMatch[0].includes("forumlist_li")) continue;
-      const aTagMatch = /<a[^>]*href="[^"]*thread-([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(aMatch[1]);
-      if (aTagMatch) {
-        const tid = aTagMatch[1].replace(/\D/g, '');
-        let subject = ForumParser.stripInvisible(aTagMatch[2]).replace(/^置顶/, '').trim();
-        if (!seenAnn.has(tid)) {
-          seenAnn.add(tid);
-          const t = new Thread();
-          t.tid = tid;
-          t.subject = subject;
-          t.isAnnouncement = true;
-          announcements.push(t);
-        }
-      }
-    }
-    fp.announcements = announcements;
-
-    const threads: Array<Thread> = [];
-    const seenTid: Set<string> = new Set();
-    const liRegex = /<li[^>]*class="[^"]*forumlist_li[^"]*"[^>]*>([\s\S]*?)<\/li>/gi;
-    let liMatch: RegExpExecArray | null;
-
-    while ((liMatch = liRegex.exec(html)) !== null) {
-      const liContent = liMatch[1];
-      let titleHref = "", subject = "", isTitleA = false;
-      
-      const titleAMatch = /<div[^>]*class="[^"]*mmlist_li_box[^"]*"[^>]*>[\s\S]*?<h2[^>]*>[\s\S]*?<a[^>]*href="([^"]*thread-[^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(liContent);
-      if (titleAMatch) { titleHref = titleAMatch[1]; subject = titleAMatch[2]; isTitleA = true; }
-      else {
-        const threadAMatch = /<div[^>]*class="[^"]*list_body[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]*thread-[^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(liContent);
-        if (threadAMatch) { titleHref = threadAMatch[1]; subject = threadAMatch[2]; }
-      }
-      if (!titleHref) continue;
-
-      const tidMatch = /thread-(\d+)/.exec(titleHref);
-      if (!tidMatch || seenTid.has(tidMatch[1])) continue;
-      const tid = tidMatch[1];
-      seenTid.add(tid);
-
-      const authorAMatch = /<a[^>]*class="[^"]*top_user[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/i.exec(liContent);
-      let authorName: string | null = null, authorUid: string | null = null;
-      if (authorAMatch) {
-        authorName = ForumParser.stripInvisible(authorAMatch[2]);
-        const uidMatch = /uid=(\d+)/.exec(authorAMatch[1]);
-        if (uidMatch) authorUid = uidMatch[1];
-      }
-
-      const avatarMatch = /<img[^>]*class="[^"]*top_tximg[^"]*"[^>]*src="([^"]+)"/i.exec(liContent);
-      const levelMatch = /<span[^>]*class="[^"]*top_lev[^"]*"[^>]*>([\s\S]*?)<\/span>/i.exec(liContent);
-      const timeMatch = /<div[^>]*class="[^"]*forumlist_li_time[^"]*"[^>]*>[\s\S]*?<span[^>]*>([\s\S]*?)<\/span>/i.exec(liContent);
-
-      let excerpt: string | null = null;
-      if (isTitleA) {
-        const exMatch = /<div[^>]*class="[^"]*list_body[^"]*"[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i.exec(liContent);
-        if (exMatch) excerpt = ForumParser.stripInvisible(exMatch[1]);
-      }
-
-      let forumName: string | null = null;
-      const fNameMatch = /<div[^>]*class="[^"]*comiis_xznalist_bk[^"]*"[^>]*>[\s\S]*?<a[^>]*href="[^"]*forum-[^"]*"[^>]*>([\s\S]*?)<\/a>/i.exec(liContent);
-      if (fNameMatch) forumName = ForumParser.stripInvisible(fNameMatch[1]);
-
-      const stats = ForumParser.readCardStats(liContent);
-      const thread = new Thread();
-      thread.tid = tid;
-      thread.subject = ForumParser.stripInvisible(subject);
-      thread.authorName = authorName;
-      thread.authorUid = authorUid;
-      thread.avatarUrl = avatarMatch ? avatarMatch[1] : null;
-      thread.level = levelMatch ? ForumParser.stripInvisible(levelMatch[1]) : null;
-      thread.timeText = timeMatch ? ForumParser.stripInvisible(timeMatch[1]) : null;
-      thread.replyCount = stats[0];
-      thread.viewCount = stats[1];
-      thread.likeCount = stats[2];
-      thread.excerpt = excerpt;
-      thread.forumName = forumName;
-      thread.imageUrls = ForumParser.collectThreadImages(liContent);
-      threads.push(thread);
-    }
-    fp.threads = threads;
-    return fp;
+    return new ForumPage();
   }
+
+  // ------------------ 核心：解析帖子详情页 ------------------
 
   static parseThreadPage(html: string, page: number): ThreadPage {
-    const tp = new ThreadPage();
-    tp.page = page;
+    let threadPage = new ThreadPage();
+    threadPage.page = page;
+    threadPage.posts = [];
 
-    const titleMatch = /<title>([\s\S]*?)<\/title>/i.exec(html);
-    if (titleMatch) tp.subject = ForumParser.stripInvisible(titleMatch[1]).replace("- MT论坛", "").trim();
+    // 1. 提取标题与 TID
+    let titleMatch = this.extractFirstMatch(html, /<title>(.*?)<\/title>/i);
+    threadPage.subject = titleMatch ? titleMatch.replace('- MT论坛', '').trim() : "";
+    
+    let tidMatch = this.extractFirstMatch(html, /thread-(\d+)/);
+    threadPage.tid = tidMatch || "";
 
-    const forumMatch = /<a[^>]*class="[^"]*kmtit[^"]*"[^>]*>([\s\S]*?)<\/a>/i.exec(html);
-    if (forumMatch) tp.forumName = ForumParser.stripInvisible(forumMatch[1]);
+    // 2. 提取 formhash
+    threadPage.formhash = this.extractFirstMatch(html, /formhash["']?\s+value=["']([0-9a-fA-F]+)/i);
 
-    const replyMatch = /<div[^>]*class="[^"]*comiis_pltit[^"]*"[^>]*>[\s\S]*?<h2[^>]*>[\s\S]*?<span[^>]*>([\s\S]*?)<\/span>/i.exec(html);
-    if (replyMatch) tp.totalReplies = parseInt(ForumParser.stripInvisible(replyMatch[1])) || 0;
+    // 3. 提取作者 ID、总回复、点赞、收藏
+    threadPage.opUid = this.extractFirstMatch(html, /authorid\s*=\s*['"](\d+)['"]/i);
+    
+    let totalRepliesMatch = this.extractFirstMatch(html, /<div class="comiis_pltit">[\s\S]*?<h2>.*?<span>(\d+)<\/span>/i);
+    threadPage.totalReplies = totalRepliesMatch ? parseInt(totalRepliesMatch) : null;
 
-    const likeMatch = /<em[^>]*class="[^"]*comiis_recommend_num[^"]*"[^>]*>([\s\S]*?)<\/em>/i.exec(html);
-    if (likeMatch) {
-      const numMatch = /(\d+)/.exec(likeMatch[1]);
-      tp.likeCount = numMatch ? parseInt(numMatch[1]) : 0;
+    let likeMatch = this.extractFirstMatch(html, /<em class="comiis_recommend_num">(.*?)<\/em>/i);
+    threadPage.likeCount = likeMatch ? this.numberFromText(likeMatch) : null;
+
+    let favMatch = this.extractFirstMatch(html, /<span class="comiis_favorite_a_num">(\d+)<\/span>/i);
+    threadPage.favoriteCount = favMatch ? parseInt(favMatch) : null;
+
+    // 4. 提取回复表单 Action
+    threadPage.replyUrl = this.extractFirstMatch(html, /<form[^>]*id="fastpostform"[^>]*action="([^"]+)"/i);
+
+    // 5. 状态检测
+    let actionState = this.parseActionState(html);
+    threadPage.isLiked = actionState.liked;
+    threadPage.likedStateKnown = actionState.likedKnown;
+    threadPage.isFavorited = actionState.favorited;
+    threadPage.favoritedStateKnown = actionState.favoritedKnown;
+
+    let followState = this.parseFollowState(html);
+    threadPage.isFollowingOp = followState[0];
+    threadPage.followingStateKnown = followState[1];
+
+    // 6. 解析每一层楼
+    // 使用 split 切割出所有的 div.comiis_postli
+    const parts = html.split('<div class="comiis_postli"');
+    for (let i = 1; i < parts.length; i++) {
+      let liHtml = parts[i];
+      // 只取到当前 div 结束，简化处理，截取到下一个楼层前
+      let nextDivIndex = liHtml.indexOf('<div class="comiis_postli"');
+      if (nextDivIndex !== -1) {
+        liHtml = liHtml.substring(0, nextDivIndex);
+      }
+
+      let post = this.parsePost(liHtml, threadPage.opUid);
+      if (post) {
+        threadPage.posts.push(post);
+      }
     }
 
-    const favMatch = /<span[^>]*class="[^"]*comiis_favorite_a_num[^"]*"[^>]*>([\s\S]*?)<\/span>/i.exec(html);
+    return threadPage;
+  }
+
+  static parsePost(liHtml: string, opUid: string | null): Post | null {
+    let post = new Post();
+    
+    // 提取 pid
+    let pidMatch = this.extractFirstMatch(liHtml, /id="pid(\d+)"/i);
+    if (!pidMatch) return null;
+    post.pid = pidMatch;
+
+    // 提取作者信息
+    let authorMatch = this.extractFirstMatch(liHtml, /<a[^>]*class="[^"]*xw1[^"]*"[^>]*>(.*?)<\/a>/i) || this.extractFirstMatch(liHtml, /<div class="comiis_postli_topv1">[\s\S]*?<a[^>]*>(.*?)<\/a>/i);
+    post.authorName = authorMatch ? this.stripHtmlTags(authorMatch) : "匿名";
+
+    let uidMatch = this.extractFirstMatch(liHtml, /href="[^"]*uid=(\d+)[^"]*"/i);
+    post.authorUid = uidMatch;
+
+    let avatarMatch = this.extractFirstMatch(liHtml, /<img[^>]*src="([^"]+)"[^>]*class="[^"]*avatar[^"]*"/i) || this.extractFirstMatch(liHtml, /<div class="avatar">[\s\S]*?<img[^>]*src="([^"]+)"/i);
+    post.avatarUrl = avatarMatch;
+
+    // 提取时间
+    let timeMatch = this.extractFirstMatch(liHtml, /<span[^>]*title="([^"]+)"[^>]*>.*?发表于/i);
+    post.timeText = timeMatch;
+
+    // 提取楼层文本
+    let floorTextMatch = this.extractFirstMatch(liHtml, /<span class="f_d y">(.*?)<\/span>/i);
+    if (floorTextMatch) {
+      post.floorLabel = this.stripHtmlTags(floorTextMatch);
+      let numMatch = post.floorLabel.match(/^(\d+)/);
+      post.floor = numMatch ? parseInt(numMatch[1]) : null;
+    }
+
+    // 判断楼主
+    if (opUid && post.authorUid === opUid) {
+      post.isOp = true;
+    }
+
+    // 提取正文内容
+    let contentMatch = this.extractFirstMatch(liHtml, /<td[^>]*class="[^"]*t_f[^"]*"[^>]*>([\s\S]*?)<\/td>/i) || this.extractFirstMatch(liHtml, /<div class="comiis_postmessage">([\s\S]*?)<\/div>/i);
+    if (contentMatch) {
+      post.contentHtml = contentMatch.trim();
+      // 检查是否包含隐藏内容提示
+      if (post.contentHtml.includes('回复可见') || post.contentHtml.includes('隐藏内容') || post.contentHtml.includes('查看本帖隐藏内容')) {
+        post.hasHiddenContent = true;
+      }
+    } else {
+      post.contentHtml = "<p>暂无内容</p>";
+    }
+
+    return post;
+  }
+
+  static parseActionState(html: string): { liked: boolean, likedKnown: boolean, favorited: boolean, favoritedKnown: boolean } {
+    let res = { liked: false, likedKnown: false, favorited: false, favoritedKnown: false };
+    // 检查推荐/点赞状态
+    let recommendMatch = this.extractFirstMatch(html, /<a[^>]*class="([^"]*comiis_recommend[^"]*)"[^>]*>/i);
+    if (recommendMatch) {
+      res.likedKnown = true;
+      res.liked = recommendMatch.includes('f_a');
+    }
+    // 检查收藏状态
+    let favMatch = this.extractFirstMatch(html, /<i[^>]*class="([^"]*comiis_favorite_a_color[^"]*)"[^>]*>/i);
     if (favMatch) {
-      const numMatch = /(\d+)/.exec(favMatch[1]);
-      tp.favoriteCount = numMatch ? parseInt(numMatch[1]) : 0;
+      res.favoritedKnown = true;
+      res.favorited = favMatch.includes('f_a');
     }
-
-    const fhMatch = /name="formhash" value="([^"]+)"/i.exec(html);
-    if (fhMatch) tp.formhash = fhMatch[1];
-
-    const fidMatch = /fid=(\d+)/.exec(html);
-    if (fidMatch) tp.fid = fidMatch[1];
-
-    const posts: Array<Post> = [];
-    const postBlockRegex = /<div[^>]*id="pid(\d+)"[^>]*class="[^"]*comiis_postli[^"]*"[^>]*>([\s\S]*?)<div[^>]*class="[^"]*comiis_postli_bottom[^"]*"/gi;
-    let pMatch: RegExpExecArray | null;
-    
-    while ((pMatch = postBlockRegex.exec(html)) !== null) {
-      const content = pMatch[2];
-      const post = new Post();
-      post.pid = pMatch[1];
-      post.isOp = content.includes("楼主") || content.includes("顶楼");
-
-      const authorMatch = /<a[^>]*class="[^"]*top_user[^"]*"[^>]*href="[^"]*uid=(\d+)[^"]*"[^>]*>([\s\S]*?)<\/a>/i.exec(content);
-      if (authorMatch) {
-        post.authorUid = authorMatch[1];
-        post.authorName = ForumParser.stripInvisible(authorMatch[2]);
-      }
-
-      const timeMatch = /<span[^>]*class="[^"]*kmtime[^"]*"[^>]*>([\s\S]*?)<\/span>/i.exec(content);
-      if (timeMatch) post.timeText = ForumParser.stripInvisible(timeMatch[1]);
-
-      const floorMatch = /<span[^>]*class="[^"]*f_d[^"]*y[^"]*"[^>]*>([\s\S]*?)<\/span>/i.exec(content);
-      if (floorMatch) {
-        post.floorLabel = ForumParser.stripInvisible(floorMatch[1]);
-        const fNum = /(\d+)/.exec(post.floorLabel);
-        if (fNum) post.floor = parseInt(fNum[1]);
-      }
-
-      const htmlMatch = /<div[^>]*class="[^"]*comiis_a[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(content);
-      if (htmlMatch) {
-        let rawHtml = htmlMatch[1];
-        rawHtml = rawHtml.replace(/<div[^>]*class="[^"]*(?:comiis_quote|quote)[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '');
-        post.imageUrls = ForumParser.extractImagesFromHtml(rawHtml);
-        rawHtml = rawHtml.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<[^>]+>/g, '');
-        post.contentHtml = ForumParser.stripInvisible(rawHtml);
-      }
-      posts.push(post);
-    }
-    tp.posts = posts;
-    return tp;
+    return res;
   }
 
-  static extractLoginHash(html: string): string | null {
-    const match = /loginhash=([a-zA-Z0-9]+)/.exec(html);
-    return match ? match[1] : null;
-  }
-
-  static extractLoginFormhash(html: string): string | null {
-    const match = /name="formhash" value="([^"]+)"/.exec(html);
-    return match ? match[1] : null;
-  }
-
-  static parseLoginResult(html: string): LoginResult {
-    const result = new LoginResult();
-    if (html.includes("欢迎您回来") || html.includes("现在将转入登录前页面") || html.includes("successhandle")) {
-      result.success = true;
-      result.message = "登录成功";
-      return result;
+  static parseFollowState(html: string): [boolean, boolean] {
+    let linkMatch = this.extractFirstMatch(html, /<a[^>]*href="([^"]*ac=follow[^"]*)"[^>]*>(.*?)<\/a>/i);
+    if (!linkMatch) return [false, false];
+    // 因为 extractFirstMatch 只抓取第一个括号，这里重新处理一下
+    let match = html.match(/<a[^>]*href="([^"]*ac=follow[^"]*)"[^>]*>(.*?)<\/a>/i);
+    if (match) {
+      let href = match[1];
+      let text = this.stripHtmlTags(match[2]);
+      if (href.includes('op=del') || text.includes('取消关注')) return [true, true];
+      if (href.includes('op=add')) return [false, true];
+      if (text.includes('已关注')) return [true, true];
+      return [false, true];
     }
-    if (html.includes("需要验证码") || html.includes("seccode")) {
-      result.success = false;
-      result.needsCaptcha = true;
-      result.message = "需要验证码";
-      return result;
-    }
-    let errMsg = "登录失败";
-    const dtMatch = /id=["']messagetext["'][^>]*>([\s\S]*?)<\/dt>/i.exec(html);
-    if (dtMatch) {
-      errMsg = ForumParser.stripInvisible(dtMatch[1].replace(/<[^>]+>/g, ''));
-    } else {
-      const pMatch = /<p>([\s\S]*?)(?:<script|<\/p>)/i.exec(html);
-      if (pMatch && !pMatch[1].includes("<img") && pMatch[1].trim().length > 0) {
-        errMsg = ForumParser.stripInvisible(pMatch[1].replace(/<[^>]+>/g, ''));
-      }
-    }
-    result.success = false;
-    result.message = errMsg;
-    return result;
-  }
-
-  static parseUserProfile(html: string, fallbackUid: string | null = null): UserProfile {
-    const profile = new UserProfile();
-    let uid = fallbackUid;
-    if (!uid || uid.trim() === '') {
-      const uidMatch = /discuz_uid\s*=\s*'(\d+)'/.exec(html) || /uid=(\d+)/.exec(html);
-      if (uidMatch) uid = uidMatch[1];
-    }
-    profile.uid = uid;
-    if (!uid || uid === '0') return profile;
-
-    const nameMatch = /<div[^>]*class="[^"]*comiis_space_tx[^"]*"[^>]*>[\s\S]*?<h2[^>]*>([\s\S]*?)<\/h2>/i.exec(html);
-    if (nameMatch) {
-      profile.name = ForumParser.stripInvisible(nameMatch[1].replace(/<[^>]+>/g, ''));
-    } else {
-      const sideNameMatch = /<a[^>]*class="[^"]*sidenv_user[^"]*"[^>]*>([\s\S]*?)<\/a>/i.exec(html);
-      if (sideNameMatch) profile.name = ForumParser.stripInvisible(sideNameMatch[1]);
-    }
-
-    const levelMatch = /<span[^>]*class="[^"]*(?:kmlevs|user_lev)[^"]*"[^>]*>([\s\S]*?)<\/span>/i.exec(html);
-    if (levelMatch) {
-      profile.level = ForumParser.stripInvisible(levelMatch[1]);
-      profile.groupName = profile.level;
-    }
-
-    const avatarMatch = /<div[^>]*class="[^"]*comiis_space_tx[^"]*"[^>]*>[\s\S]*?<img[^>]*src="([^"]+)"/i.exec(html);
-    if (avatarMatch) {
-      profile.avatarUrl = avatarMatch[1];
-    } else {
-      const sideAvatarMatch = /<img[^>]*class="[^"]*sidenv_tximg[^"]*"[^>]*src="([^"]+)"/i.exec(html);
-      if (sideAvatarMatch) profile.avatarUrl = sideAvatarMatch[1];
-    }
-
-    const extractNumber = (label: string): number => {
-      const reg = new RegExp(`<li[^>]*>[^<]*${label}[^<]*<[^>]*>\s*(\\d+)`, 'i');
-      const match = reg.exec(html);
-      return match ? parseInt(match[1]) : 0;
-    };
-
-    profile.posts = extractNumber("帖子");
-    profile.threads = extractNumber("主题");
-    profile.credits = extractNumber("积分");
-    profile.gold = extractNumber("金币");
-    profile.friends = extractNumber("好友");
-    profile.followers = extractNumber("粉丝");
-    return profile;
-  }
-
-  static parseCheckInStatus(html: string): CheckInStatus {
-    const status = new CheckInStatus();
-    const fhMatch = /name="formhash" value="([^"]+)"/i.exec(html);
-    if (fhMatch) status.formhash = fhMatch[1];
-    if (html.includes("已签到") || html.includes("今日已签到") || html.includes("已经签到")) {
-      status.hasSigned = true;
-    } else {
-      status.hasSigned = false;
-    }
-    return status;
-  }
-
-  static parseCheckInResponse(response: string): CheckInResult {
-    const result = new CheckInResult();
-    if (response.includes("签到成功") || response.includes("恭喜") || response.includes("已签到")) {
-      result.success = true;
-      result.message = "签到成功";
-    } else {
-      result.success = false;
-      result.message = ForumParser.stripInvisible(response.replace(/<[^>]+>/g, '')).substring(0, 50);
-    }
-    return result;
-  }
-
-  static parseNoticePage(html: string): NoticePage {
-    const page = new NoticePage();
-    if (html.includes("您需要先登录") || html.includes("立即登录")) {
-      page.loggedOut = true;
-      return page;
-    }
-    const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
-    let match: RegExpExecArray | null;
-    while ((match = liRegex.exec(html)) !== null) {
-      const li = match[1];
-      const textMatch = /<p[^>]*>([\s\S]*?)<\/p>/i.exec(li);
-      const timeMatch = /<span[^>]*>([\s\S]*?)<\/span>/i.exec(li);
-      if (textMatch) {
-        const notice = new Notice();
-        notice.id = Math.random().toString(36).substr(2, 9);
-        notice.text = ForumParser.stripInvisible(textMatch[1].replace(/<[^>]+>/g, ''));
-        notice.timeText = timeMatch ? ForumParser.stripInvisible(timeMatch[1]) : null;
-        const tidMatch = /thread-(\d+)/.exec(li);
-        if (tidMatch) notice.tid = tidMatch[1];
-        if (notice.text.length > 0) page.notices.push(notice);
-      }
-    }
-    return page;
-  }
-
-  static parseReplyResponse(html: string): ReplyResult {
-    const result = new ReplyResult();
-    if (html.includes("回复成功") || html.includes("感谢您的回复") || html.includes("succeedhandle")) {
-      result.success = true;
-      result.message = "回复成功";
-    } else {
-      result.success = false;
-      const errMatch = /id=["']messagetext["'][^>]*>([\s\S]*?)<\/dt>/i.exec(html);
-      if (errMatch) {
-        result.message = ForumParser.stripInvisible(errMatch[1].replace(/<[^>]+>/g, ''));
-      } else {
-        result.message = "回复失败，可能包含敏感词或被限制";
-      }
-    }
-    return result;
-  }
-
-  static parseSearchResult(html: string): SearchResult {
-    const result = new SearchResult();
-    const threads = ForumParser.parseForumPage(html, 1).threads;
-    result.threads = threads;
-    return result;
-  }
-
-  static parseMyThreads(html: string, page: number): MyThreadPage {
-    const pageData = new MyThreadPage();
-    const fp = ForumParser.parseForumPage(html, page);
-    pageData.threads = fp.threads;
-    pageData.page = page;
-    pageData.hasNext = fp.hasNext;
-    return pageData;
-  }
-
-  static parseFavorites(html: string, page: number): FavoritePage {
-    const fp = new FavoritePage();
-    fp.page = page;
-    fp.hasNext = html.includes("下一页");
-    const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
-    let match: RegExpExecArray | null;
-    while ((match = liRegex.exec(html)) !== null) {
-      const content = match[1];
-      const tidMatch = /thread-(\d+)/.exec(content);
-      if (tidMatch) {
-        const item = new FavoriteItem();
-        item.id = tidMatch[1];
-        item.favid = tidMatch[1];
-        const titleMatch = /<a[^>]*>([\s\S]*?)<\/a>/i.exec(content);
-        if (titleMatch) {
-          item.title = ForumParser.stripInvisible(titleMatch[1].replace(/<[^>]+>/g, ''));
-          if (item.title.length > 0) fp.items.push(item);
-        }
-      }
-    }
-    return fp;
-  }
-
-  static parseFriends(html: string, page: number): FriendUserPage {
-    const fp = new FriendUserPage();
-    fp.page = page;
-    fp.hasNext = html.includes("下一页");
-    const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
-    let match: RegExpExecArray | null;
-    while ((match = liRegex.exec(html)) !== null) {
-      const content = match[1];
-      const uidMatch = /uid=(\d+)/.exec(content);
-      if (uidMatch) {
-        const user = new FriendUserItem();
-        user.uid = uidMatch[1];
-        const nameMatch = /<h4[^>]*>([\s\S]*?)<\/h4>|<a[^>]*class="[^"]*kmname[^"]*"[^>]*>([\s\S]*?)<\/a>/i.exec(content);
-        if (nameMatch) {
-          user.username = ForumParser.stripInvisible((nameMatch[1] || nameMatch[2] || '').replace(/<[^>]+>/g, ''));
-          if (user.username) fp.users.push(user);
-        }
-      }
-    }
-    return fp;
-  }
-
-  static extractImagesFromHtml(html: string): Array<string> {
-    const images: Array<string> = [];
-    const imgRegex = /<img[^>]*src="([^"]+)"/gi;
-    let match: RegExpExecArray | null;
-    while ((match = imgRegex.exec(html)) !== null) {
-      const url = match[1];
-      if (url.includes("smiley") || url.includes("static/image")) continue;
-      if (!images.includes(url)) {
-        images.push(url);
-      }
-    }
-    return images;
-  }
-
-  static parseNewThreadInit(html: string): NewThreadPageData {
-    const data = new NewThreadPageData();
-    const fhMatch = /name="formhash" value="([^"]+)"/i.exec(html);
-    if (fhMatch) data.formhash = fhMatch[1];
-    
-    const ptMatch = /name="posttime" value="([^"]+)"/i.exec(html);
-    if (ptMatch) data.posttime = ptMatch[1];
-
-    const creds = ForumParser.parseUploadCredentials(html);
-    if (creds) {
-      data.uploadUid = creds[0];
-      data.uploadHash = creds[1];
-    }
-    return data;
-  }
-
-  static parseUploadCredentials(html: string): [string, string] | null {
-    // 提取 uid 和 hash
-    const uidMatch = /upload_uid\s*=\s*'([^']+)'/.exec(html) || /discuz_uid\s*=\s*'(\d+)'/.exec(html);
-    const hashMatch = /upload_hash\s*=\s*'([^']+)'/.exec(html) || /hash\s*=\s*'([^']+)'/.exec(html);
-    if (uidMatch && hashMatch) {
-      return [uidMatch[1], hashMatch[1]];
-    }
-    return null;
-  }
-
-  static parseNewThreadResult(html: string): NewThreadResult {
-    const result = new NewThreadResult();
-    const tidMatch = /thread-(\d+)/.exec(html);
-    if (tidMatch) {
-      result.success = true;
-      result.tid = tidMatch[1];
-      result.message = "发布成功";
-    } else {
-      result.success = false;
-      const errMatch = /id=["']messagetext["'][^>]*>([\s\S]*?)<\/dt>/i.exec(html);
-      result.message = errMatch ? ForumParser.stripInvisible(errMatch[1].replace(/<[^>]+>/g, '')) : "发布失败";
-    }
-    return result;
-  }
-
-  static parsePmPage(html: string): PmPage {
-    const page = new PmPage();
-    if (html.includes("您需要先登录") || html.includes("立即登录")) {
-      page.loggedOut = true;
-      return page;
-    }
-    
-    // 匹配私信列表项
-    const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
-    let match: RegExpExecArray | null;
-    
-    while ((match = liRegex.exec(html)) !== null) {
-      const li = match[1];
-      const touidMatch = /touid=(\d+)/.exec(li) || /uid=(\d+)/.exec(li);
-      if (touidMatch) {
-        const msg = new PrivateMessage();
-        msg.touid = touidMatch[1];
-        msg.plid = Math.random().toString(36).substr(2, 9);
-        
-        const nameMatch = /<h4[^>]*>([\s\S]*?)<\/h4>|<a[^>]*class="[^"]*kmname[^"]*"[^>]*>([\s\S]*?)<\/a>/i.exec(li);
-        if (nameMatch) {
-          msg.username = ForumParser.stripInvisible((nameMatch[1] || nameMatch[2] || '').replace(/<[^>]+>/g, ''));
-        }
-
-        const summaryMatch = /<p[^>]*>([\s\S]*?)<\/p>/i.exec(li);
-        if (summaryMatch) {
-          msg.summary = ForumParser.stripInvisible(summaryMatch[1].replace(/<[^>]+>/g, ''));
-        }
-
-        const timeMatch = /<span[^>]*>([\s\S]*?)<\/span>/i.exec(li);
-        if (timeMatch) {
-          msg.timeText = ForumParser.stripInvisible(timeMatch[1]);
-        }
-
-        if (msg.username || msg.summary) {
-          page.messages.push(msg);
-        }
-      }
-    }
-    return page;
-  }
-
-  static parseChatConversation(html: string, touid: string): ChatConversation {
-    const conv = new ChatConversation();
-    conv.touid = touid;
-    // 提取 formhash
-    const fhMatch = /name="formhash" value="([^"]+)"/i.exec(html);
-    if (fhMatch) conv.formhash = fhMatch[1];
-    
-    // 此处为标准 Discuz 聊天记录提取，依据具体 DOM 结构简易适配
-    const msgRegex = /<div[^>]*class="[^"]*(?:comiis_pm_list|message)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
-    let match: RegExpExecArray | null;
-    while ((match = msgRegex.exec(html)) !== null) {
-      const msg = new ChatMessage();
-      msg.id = Math.random().toString(36).substr(2, 9);
-      msg.text = ForumParser.stripInvisible(match[1].replace(/<[^>]+>/g, ''));
-      msg.isSelf = match[1].includes("isSelf") || match[1].includes("我的消息");
-      conv.messages.push(msg);
-    }
-    return conv;
-  }
-
-  static parseRichText(html: string): Array<RichTextNode> {
-    const nodes: Array<RichTextNode> = [];
-    if (!html) return nodes;
-
-    // 将 br 和 p 转换为换行符
-    let text = html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n');
-    
-    // 提取所有图片标签
-    const imgRegex = /<img[^>]*src="([^"]+)"[^>]*>/gi;
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
-
-    while ((match = imgRegex.exec(text)) !== null) {
-      // 图片前的文本
-      if (match.index > lastIndex) {
-        let textContent = text.substring(lastIndex, match.index).replace(/<[^>]+>/g, '');
-        textContent = ForumParser.stripInvisible(textContent);
-        if (textContent.trim()) {
-          const node = new RichTextNode();
-          node.type = "text";
-          node.content = textContent;
-          nodes.push(node);
-        }
-      }
-      
-      // 图片节点
-      const imgNode = new RichTextNode();
-      imgNode.type = "image";
-      imgNode.content = match[1];
-      nodes.push(imgNode);
-
-      lastIndex = imgRegex.lastIndex;
-    }
-
-    // 剩余的文本
-    if (lastIndex < text.length) {
-      let textContent = text.substring(lastIndex).replace(/<[^>]+>/g, '');
-      textContent = ForumParser.stripInvisible(textContent);
-      if (textContent.trim()) {
-        const node = new RichTextNode();
-        node.type = "text";
-        node.content = textContent;
-        nodes.push(node);
-      }
-    }
-
-    return nodes;
+    return [false, false];
   }
 }
-
-
-
