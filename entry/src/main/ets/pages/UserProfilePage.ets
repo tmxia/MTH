@@ -21,6 +21,30 @@ struct UserProfilePage {
     }
   }
 
+  doBlock() {
+    AlertDialog.show({
+      title: '拉黑用户',
+      message: '拉黑后 Ta 的帖子不再显示，确定拉黑？',
+      primaryButton: { value: '取消', action: () => {} },
+      secondaryButton: {
+        value: '拉黑',
+        fontColor: '#E53935',
+        action: async () => {
+          let name = '';
+          if (this.threads && this.threads.length > 0) {
+            name = (this.threads[0].authorName as string) || '';
+          }
+          if (!name) {
+            promptAction.showToast({ message: '无法获取用户名' });
+            return;
+          }
+          const res = await forumRepository.addUserBlacklist(name, '');
+          promptAction.showToast({ message: res || '操作完成' });
+        }
+      }
+    });
+  }
+
   async loadData() {
     this.isLoading = true;
     try {
@@ -55,7 +79,7 @@ struct UserProfilePage {
       Row() {
         Text('< 返回').fontSize(16).fontColor('#333').onClick(() => router.back())
         Text('Ta 的主页').fontSize(18).fontWeight(FontWeight.Bold).layoutWeight(1).textAlign(TextAlign.Center)
-        Blank().width(40)
+        Text('拉黑').fontSize(14).fontColor('#E53935').onClick(() => this.doBlock())
       }.width('100%').height(50).padding({ left: 16, right: 16 }).backgroundColor('#FFFFFF')
 
       if (this.isLoading) {

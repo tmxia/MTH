@@ -18,8 +18,25 @@ struct ThreadDetail {
   @State isOffline: boolean = false;
   @State currentTid: string = '';
   @State downloading: boolean = false;
+  @State myUid: string = '';
+  @State myName: string = '';
 
   async aboutToAppear() {
+    // 先读缓存
+    const cachedUid = AppStorage.Get<string>('currentUid');
+    const cachedName = AppStorage.Get<string>('currentName');
+    if (cachedUid) {
+      this.myUid = cachedUid;
+      this.myName = cachedName || '';
+    } else {
+      try {
+        const p = await forumRepository.me();
+        this.myUid = p.uid || '';
+        this.myName = p.name || '';
+        AppStorage.SetOrCreate('currentUid', this.myUid);
+        AppStorage.SetOrCreate('currentName', this.myName);
+      } catch (e) {}
+    }
     const params = router.getParams() as Record<string, string>;
     if (params && params.tid) {
       this.currentTid = params.tid;
@@ -119,6 +136,95 @@ struct ThreadDetail {
     }
   }
 
+  showPostMenu(post: Post) {
+    const isMine = this.myUid && post.authorUid === this.myUid;
+    if (isMine) {
+      AlertDialog.show({
+        title: '操作',
+        message: '选择对这条内容的操作',
+        primaryButton: {
+          value: '编辑',
+          action: () => this.goEdit(post)
+        },
+        secondaryButton: {
+          value: '删除',
+          fontColor: '#E53935',
+          action: () => this.confirmDelete(post)
+        }
+      });
+    } else {
+      AlertDialog.show({
+        title: '操作',
+        message: '选择操作',
+        primaryButton: {
+          value: '举报',
+          action: () => this.doReport(post)
+        },
+        secondaryButton: {
+          value: '拉黑作者',
+          fontColor: '#E53935',
+          action: () => this.doBlockAuthor(post)
+        }
+      });
+    }
+  }
+
+  goEdit(post: Post) {
+    // 需要把纯文本从 contentHtml 里提出来
+    const plain = (post.contentHtml || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+    router.pushUrl({
+      url: 'pages/PostEdit',
+      params: {
+        tid: this.currentTid,
+        pid: post.pid,
+        fid: this.tp ? (this.tp.fid || '') : '',
+        forumName: this.tp ? (this.tp.forumName || '') : '',
+        subject: this.tp ? (this.tp.subject || '') : '',
+        message: plain
+      }
+    });
+  }
+
+  async confirmDelete(post: Post) {
+    AlertDialog.show({
+      title: '删除帖子',
+      message: '删除后无法恢复，确定删除？',
+      primaryButton: { value: '取消', action: () => {} },
+      secondaryButton: {
+        value: '删除',
+        fontColor: '#E53935',
+        action: async () => {
+          if (!this.tp) return;
+          const fh = (this.tp.formhash as string) || '';
+          const ok = await forumRepository.deletePost(this.currentTid, post.pid, fh);
+          promptAction.showToast({ message: ok ? '删除成功' : '删除失败' });
+          if (ok) {
+            // 重新加载
+            await this.loadData(this.currentTid, 1);
+          }
+        }
+      }
+    });
+  }
+
+  async doReport(post: Post) {
+    if (!this.tp) return;
+    const fid = this.tp.fid || '';
+    const fh = (this.tp.formhash as string) || '';
+    const ok = await forumRepository.reportPost(this.currentTid, fid, fh, post.pid, '其他', '该内容涉嫌违规，请核实处理。');
+    promptAction.showToast({ message: ok ? '举报成功' : '举报失败，请稍后重试' });
+  }
+
+  async doBlockAuthor(post: Post) {
+    const name = post.authorName || '';
+    if (!name) {
+      promptAction.showToast({ message: '无法获取用户名' });
+      return;
+    }
+    const res = await forumRepository.addUserBlacklist(name, '');
+    promptAction.showToast({ message: res || '操作完成' });
+  }
+
   async loadData(tid: string, page: number) {
     this.isLoading = true;
     try {
@@ -179,7 +285,13 @@ struct ThreadDetail {
           ForEach(this.tp.posts, (post: Post) => {
             ListItem() {
               Column() {
-                Text(post.authorName).fontWeight(FontWeight.Medium)
+                Row() {
+                  Text(post.authorName).fontWeight(FontWeight.Medium).layoutWeight(1)
+                  Text('···')
+                    .fontSize(16).fontColor('#999')
+                    .padding({ left: 8, right: 4, top: 0, bottom: 0 })
+                    .onClick(() => this.showPostMenu(post))
+                }.width('100%')
                 ForEach(this.parsedRichText.get(post.pid) || [], (node: RichTextNode) => {
                   if (node.type === 'text') {
                     Text(node.content).fontSize(15).lineHeight(24)

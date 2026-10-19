@@ -19,6 +19,9 @@ struct PostEdit {
   @State isUploading: boolean = false;
   @State isSubmitting: boolean = false;
   @State showSmiley: boolean = false;
+  @State isEditMode: boolean = false;
+  @State editTid: string = '';
+  @State editPid: string = '';
 
   onPageShow() {
     const picked = AppStorage.Get<string>('pickedAtUser');
@@ -32,6 +35,18 @@ struct PostEdit {
   }
 
   async aboutToAppear() {
+    // 先判断编辑模式
+    const params = router.getParams() as Record<string, string>;
+    if (params && params.tid && params.pid) {
+      this.isEditMode = true;
+      this.editTid = params.tid;
+      this.editPid = params.pid;
+      this.fid = params.fid || '';
+      this.forumName = params.forumName || '编辑帖子';
+      this.title = params.subject || '';
+      this.content = params.message || '';
+      return;
+    }
     let context = this.getUIContext().getHostContext() as common.UIAbilityContext;
     await DraftStore.init(context);
 
@@ -98,6 +113,32 @@ struct PostEdit {
       promptAction.showToast({ message: '标题和内容不能为空' });
       return;
     }
+    // 编辑模式分支（必须在 initData 检查之前，因为编辑模式不加载 initData）
+    if (this.isEditMode) {
+      this.isSubmitting = true;
+      try {
+        let fh = '';
+        if (this.initData) {
+          fh = this.initData.formhash || '';
+        }
+        if (!fh) {
+          fh = await forumRepository.fetchFormhash();
+        }
+        const eres = await forumRepository.editPost(this.editTid, this.editPid, fh, this.content, this.title);
+        if (eres && eres.success) {
+          promptAction.showToast({ message: '编辑成功' });
+          router.back();
+        } else {
+          promptAction.showToast({ message: (eres && eres.message) || '编辑失败' });
+        }
+      } catch (e) {
+        promptAction.showToast({ message: '编辑失败：' + (e as Error).message });
+      } finally {
+        this.isSubmitting = false;
+      }
+      return;
+    }
+
     if (!this.initData) return;
 
     this.isSubmitting = true;
