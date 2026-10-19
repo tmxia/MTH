@@ -210,12 +210,12 @@ export class ForumRepository {
   
   async reply(tid: string, fid: string, formhash: string, message: string): Promise<ReplyResult> {
     try {
-      let body = {
-        'formhash': formhash,
-        'message': message,
-        'replysubmit': 'yes',
-        'fid': fid,
-        'tid': tid
+      let body: Record<string, string> = {
+        formhash: formhash,
+        message: message,
+        replysubmit: 'yes',
+        fid: fid,
+        tid: tid
       };
       let res = await HttpClient.post('/forum.php?mod=post&action=reply&fid=' + fid + '&tid=' + tid + '&reppostsubmit=yes', body);
       let result = new ReplyResult();
