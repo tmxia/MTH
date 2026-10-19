@@ -762,38 +762,37 @@ export class ForumRepository {
 
   // ===== 版块关注 =====
 
-  async followForum(fid: string, follow: boolean): Promise<boolean> {
+  async followForum(fid: string, formhash: string): Promise<boolean> {
     try {
-      const fh = await this.fetchFormhash();
+      const fh = (formhash && formhash.length > 0) ? formhash : await this.fetchFormhash();
       if (!fh) return false;
-      const op = follow ? 'add' : 'del';
-      const url = '/home.php?mod=spacecp&ac=follow&op=' + op + '&fid=' + fid +
+      const url = '/home.php?mod=spacecp&ac=follow&op=add&fid=' + fid +
         '&formhash=' + fh + '&handlekey=followmod&inajax=1&mobile=2';
       const res = await HttpClient.get(url);
       return res.indexOf('succeedhandle') >= 0 ||
              res.indexOf('关注成功') >= 0 ||
              res.indexOf('已关注') >= 0 ||
-             res.indexOf('取消关注') >= 0 ||
              res.indexOf('操作成功') >= 0;
     } catch (e) {
       return false;
     }
   }
 
-  async followTopic(tid: string, follow: boolean): Promise<boolean> {
+  async followTopic(uid: string, formhash: string, follow: boolean): Promise<string> {
     try {
-      const fh = await this.fetchFormhash();
-      if (!fh) return false;
+      const fh = (formhash && formhash.length > 0) ? formhash : await this.fetchFormhash();
+      if (!fh) return '获取操作凭据失败';
       const op = follow ? 'add' : 'del';
       const url = '/home.php?mod=spacecp&ac=favorite&type=thread&op=' + op +
-        '&id=' + tid + '&formhash=' + fh + '&handlekey=followmod&inajax=1&mobile=2';
+        '&id=' + uid + '&formhash=' + fh + '&handlekey=followmod&inajax=1&mobile=2';
       const res = await HttpClient.get(url);
-      return res.indexOf('succeedhandle') >= 0 ||
-             res.indexOf('已收藏') >= 0 ||
-             res.indexOf('已取消') >= 0 ||
-             res.indexOf('操作成功') >= 0;
+      const ok = res.indexOf('succeedhandle') >= 0 ||
+                 res.indexOf('已收藏') >= 0 ||
+                 res.indexOf('已取消') >= 0 ||
+                 res.indexOf('操作成功') >= 0;
+      return ok ? (follow ? '已关注' : '已取消关注') : '操作失败，请稍后重试';
     } catch (e) {
-      return false;
+      return '操作失败：' + (e as Error).message;
     }
   }
 
@@ -980,6 +979,87 @@ export class ForumRepository {
       const empty = new UserProfile();
       empty.uid = uid;
       return empty;
+    }
+  }
+
+
+  // ===== 取消关注版块（favid，非 fid）=====
+
+  async unfollowForum(favid: string, formhash: string): Promise<boolean> {
+    try {
+      const fh = (formhash && formhash.length > 0) ? formhash : await this.fetchFormhash();
+      if (!fh) return false;
+      const url = '/home.php?mod=spacecp&ac=favorite&op=delete&favid=' + favid +
+        '&type=all&formhash=' + fh + '&deletesubmit=true&handlekey=comiis&inajax=1&mobile=2';
+      const res = await HttpClient.get(url);
+      return res.indexOf('succeedhandle') >= 0 ||
+             res.indexOf('已取消') >= 0 ||
+             res.indexOf('操作成功') >= 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ===== 发帖页 formhash（兼容安卓签名）=====
+
+  async postFormhash(fid: string): Promise<string> {
+    try {
+      const data = await this.fetchNewThreadInit(fid);
+      return data.formhash || '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  // ===== 推荐流（兼容安卓签名）=====
+
+  async guideFeed(view: string, page: number): Promise<ForumPage> {
+    try {
+      if (view === 'portal') {
+        const html = await HttpClient.get('/plugin.php?id=comiis_app_portal&pid=1&page=' + page + '&inajax=1');
+        return ForumParser.parseForumPage(html, page);
+      } else {
+        const html = await HttpClient.get('/forum.php?mod=guide&view=' + view + '&page=' + page + '&mobile=2');
+        return ForumParser.parseForumPage(html, page);
+      }
+    } catch (e) {
+      return new ForumPage();
+    }
+  }
+
+  // ===== 上传凭证（兼容安卓签名，返回 [uid, hash]）=====
+
+  async fetchUploadCredentials(): Promise<Array<string>> {
+    try {
+      const data = await this.fetchNewThreadInit('2');
+      return [data.uploadUid || '', data.uploadHash || ''];
+    } catch (e) {
+      return ['', ''];
+    }
+  }
+
+  // ===== 置顶回复（版主权限，普通用户返回 false）=====
+
+  async stickReply(tid: string, fid: string, formhash: string, pid: string, stick: boolean): Promise<boolean> {
+    // 需要版主权限，普通用户直接返回 false
+    if (!formhash) return false;
+    try {
+      const url = '/forum.php?mod=topicadmin&action=stickreply&modsubmit=yes&modclick=yes&mobile=2&inajax=1';
+      // 用 form-urlencoded 字符串，避开 ArkTS 对动态 key 的限制
+      const parts: string[] = [
+        'formhash=' + encodeURIComponent(formhash),
+        'fid=' + encodeURIComponent(fid),
+        'tid=' + encodeURIComponent(tid),
+        'page=1',
+        'reason=' + encodeURIComponent('手机版主题操作'),
+        'topiclist%5B%5D=' + encodeURIComponent(pid),
+        'stickreply=' + (stick ? '1' : '0')
+      ];
+      const res = await HttpClient.post(url, parts.join('&'));
+      return res.indexOf('succeedhandle') >= 0 ||
+             res.indexOf('操作成功') >= 0;
+    } catch (e) {
+      return false;
     }
   }
 

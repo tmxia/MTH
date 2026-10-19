@@ -42,7 +42,11 @@ export class HttpClient {
       connectTimeout: 15000
     };
 
-    if (method === http.RequestMethod.POST && body) {
+    if (method === http.RequestMethod.POST && body && typeof body === 'string') {
+      // 字符串 body 直接传（避免 Object.keys(string) 返回索引数组）
+      options.extraData = body as string;
+      headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    } else if (method === http.RequestMethod.POST && body) {
       let formData: string[] = [];
       let bodyKeys: string[] = Object.keys(body);
       for (let i = 0; i < bodyKeys.length; i++) {
