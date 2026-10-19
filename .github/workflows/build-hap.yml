@@ -107,16 +107,63 @@ jobs:
           echo "SIGNED_HAP=${SIGNED_FILES[0]}" >> "$GITHUB_ENV"
           echo "✅ 签名完成：${#SIGNED_FILES[@]} 个"
 
+      - name: Sign Debug HAP
+        env:
+          DEBUG_KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+          DEBUG_CERT_B64:     ${{ secrets.DEBUG_CERT_BASE64 }}
+          DEBUG_PROFILE_B64:  ${{ secrets.DEBUG_PROFILE_BASE64 }}
+          DEBUG_KEY_ALIAS:    ${{ secrets.DEBUG_KEY_ALIAS }}
+          DEBUG_KEYSTORE_PWD: ${{ secrets.DEBUG_KEYSTORE_PASSWORD }}
+        run: |
+          set -e
+          if [ -z "$DEBUG_KEYSTORE_B64" ]; then
+            echo "⏭️  未配置调试证书 Secrets（git-ps key hap-debug 上传），跳过"
+            exit 0
+          fi
+          echo "$DEBUG_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/debug.p12"
+          echo "$DEBUG_CERT_B64"     | base64 -d > "$RUNNER_TEMP/debug.cer"
+          echo "$DEBUG_PROFILE_B64"  | base64 -d > "$RUNNER_TEMP/debug.p7b"
+          chmod 600 "$RUNNER_TEMP/debug.p12"
+          SIGN_JAR=$(find "$HOS_SDK_HOME" -name "hap-sign-tool.jar" 2>/dev/null | head -1)
+          [ -z "$SIGN_JAR" ] && SIGN_JAR=$(find / -name "hap-sign-tool.jar" 2>/dev/null | head -1)
+          UNSIGNED=$(find entry/build -name "*-unsigned.hap" -type f | head -1)
+          [ -z "$UNSIGNED" ] && { echo "❌ 未找到 unsigned.hap"; exit 1; }
+          DIR=$(dirname "$UNSIGNED")
+          SIGNED="$DIR/entry-default-debug.hap"
+          echo "📦 调试签名: $UNSIGNED → $SIGNED"
+          java -jar "$SIGN_JAR" sign-app \
+            -keyAlias "$DEBUG_KEY_ALIAS" \
+            -signAlg "SHA256withECDSA" \
+            -mode "localSign" \
+            -appCertFile "$RUNNER_TEMP/debug.cer" \
+            -profileFile "$RUNNER_TEMP/debug.p7b" \
+            -inFile "$UNSIGNED" \
+            -keystoreFile "$RUNNER_TEMP/debug.p12" \
+            -outFile "$SIGNED" \
+            -keyPwd "$DEBUG_KEYSTORE_PWD" \
+            -keystorePwd "$DEBUG_KEYSTORE_PWD" \
+            -signCode "1"
+          ls -lh "$SIGNED"
+
       - name: Cleanup
         if: always()
-        run: rm -f "$RUNNER_TEMP"/signing.p12 "$RUNNER_TEMP"/signing.cer "$RUNNER_TEMP"/signing.p7b
+        run: rm -f "$RUNNER_TEMP"/signing.p12 "$RUNNER_TEMP"/signing.cer "$RUNNER_TEMP"/signing.p7b "$RUNNER_TEMP"/debug.p12 "$RUNNER_TEMP"/debug.cer "$RUNNER_TEMP"/debug.p7b
+
+      - name: Read app version
+        id: appver
+        run: |
+          VER=$(grep -E '"versionName"' AppScope/app.json5 | sed -E 's/.*"versionName"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "📦 app 版本: $VER"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}-signed
-          name: Release v1.0.${{ github.run_number }}
+          tag_name: v${{ steps.appver.outputs.version }}-signed
+          name: Release v${{ steps.appver.outputs.version }}
           files: entry/build/default/outputs/default/*.hap
+          allowUpdates: true
+          overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
