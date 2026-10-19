@@ -1,6 +1,8 @@
 import { forumRepository } from '../repo/ForumRepository';
 import { MyThreadPage, Thread } from '../models/Models';
 import router from '@ohos.router';
+import { historyStore } from '../common/HistoryStore';
+import { HistoryItem } from '../models/Models';
 
 @Entry
 @Component
@@ -24,6 +26,23 @@ struct UserProfilePage {
     try {
       const res = await forumRepository.userThreads(this.uid);
       this.threads = res.threads;
+      // 写用户浏览历史
+      const h = new HistoryItem();
+      h.tid = this.uid;
+      h.type = 'user';
+      h.viewedAt = Date.now();
+      h.forumName = '用户';
+      h.author = '';
+      h.avatarUrl = '';
+      if (res.threads && res.threads.length > 0) {
+        h.title = (res.threads[0].authorName as string) || ('用户 ' + this.uid);
+        h.avatarUrl = (res.threads[0].avatarUrl as string) || '';
+      } else {
+        h.title = '用户 ' + this.uid;
+      }
+      historyStore.add(h).catch((e: Error) => {
+        console.error('add user history error: ' + e.message);
+      });
     } catch (e) {
       console.error(JSON.stringify(e));
     } finally {
