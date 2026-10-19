@@ -1,6 +1,7 @@
 import preferences from '@ohos.data.preferences';
 import common from '@ohos.app.ability.common';
 
+import { PostDraft } from '../models/Models';
 // 明确定义草稿数据接口
 export interface DraftData {
   title: string;
@@ -15,6 +16,9 @@ export class DraftStore {
   static async init(context: common.UIAbilityContext) {
     if (!DraftStore.pref) {
       DraftStore.pref = await preferences.getPreferences(context, DraftStore.STORE_NAME);
+      await DraftStore.ensureListLoaded();
+    } else {
+      await DraftStore.ensureListLoaded();
     }
   }
 
@@ -50,4 +54,98 @@ export class DraftStore {
       await DraftStore.pref.flush();
     } catch (e) {}
   }
+
+  // ===== 列表模式（与安卓 DraftStore 对齐，给 DraftsScreen 用）=====
+  private static readonly LIST_KEY = 'drafts_list_v1';
+
+  static getItems(): PostDraft[] {
+    if (!DraftStore._listCache) return [];
+    const out: PostDraft[] = [];
+    for (let i = 0; i < DraftStore._listCache.length; i++) {
+      out.push(DraftStore._listCache[i]);
+    }
+    out.sort(function(a: PostDraft, b: PostDraft): number {
+      return (b.savedAt || 0) - (a.savedAt || 0);
+    });
+    return out;
+  }
+
+  static async save(draft: PostDraft): Promise<void> {
+    if (!DraftStore.pref) return;
+    const cur = DraftStore.getItems();
+    const kept: PostDraft[] = [];
+    for (let i = 0; i < cur.length; i++) {
+      if (cur[i].fid !== draft.fid) kept.push(cur[i]);
+    }
+    kept.push(draft);
+    DraftStore._listCache = kept;
+    try {
+      await DraftStore.pref.put(DraftStore.LIST_KEY, JSON.stringify(kept));
+      await DraftStore.pref.flush();
+    } catch (e) {}
+  }
+
+  static async remove(fids: string[]): Promise<void> {
+    if (!DraftStore.pref || !fids || fids.length === 0) return;
+    const cur = DraftStore.getItems();
+    const kept: PostDraft[] = [];
+    for (let i = 0; i < cur.length; i++) {
+      let del = false;
+      for (let j = 0; j < fids.length; j++) {
+        if (cur[i].fid === fids[j]) { del = true; break; }
+      }
+      if (!del) kept.push(cur[i]);
+    }
+    DraftStore._listCache = kept;
+    try {
+      await DraftStore.pref.put(DraftStore.LIST_KEY, JSON.stringify(kept));
+      await DraftStore.pref.flush();
+    } catch (e) {}
+  }
+
+  static async clear(): Promise<void> {
+    if (!DraftStore.pref) return;
+    DraftStore._listCache = [];
+    try {
+      await DraftStore.pref.put(DraftStore.LIST_KEY, '[]');
+      await DraftStore.pref.flush();
+    } catch (e) {}
+  }
+
+  static sizeBytes(): number {
+    if (!DraftStore._listCache) return 0;
+    try {
+      return JSON.stringify(DraftStore._listCache).length;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  private static _listCache: PostDraft[] | null = null;
+
+  private static async ensureListLoaded(): Promise<void> {
+    if (!DraftStore.pref || DraftStore._listCache) return;
+    try {
+      const raw = await DraftStore.pref.get(DraftStore.LIST_KEY, '[]') as string;
+      const arr = JSON.parse(raw) as Object[];
+      const list: PostDraft[] = [];
+      if (Array.isArray(arr)) {
+        for (let i = 0; i < arr.length; i++) {
+          const o = arr[i] as Record<string, string | number>;
+          const d = new PostDraft();
+          d.fid = (o['fid'] as string) || '';
+          d.forumName = (o['forumName'] as string) || '';
+          d.subject = (o['subject'] as string) || '';
+          d.message = (o['message'] as string) || '';
+          d.typeId = (o['typeId'] as string) || '';
+          d.savedAt = (o['savedAt'] as number) || 0;
+          list.push(d);
+        }
+      }
+      DraftStore._listCache = list;
+    } catch (e) {
+      DraftStore._listCache = [];
+    }
+  }
+
 }
