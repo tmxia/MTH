@@ -1,75 +1,26 @@
-import { cookieManager } from '../network/CookieManager';
 import { forumRepository } from '../repo/ForumRepository';
-import { UserProfile, CheckInStatus, Thread, ForumGroup, Forum } from '../models/Models';
-import common from '@ohos.app.ability.common';
+import { Thread } from '../models/Models';
 import router from '@ohos.router';
-import promptAction from '@ohos.promptAction';
-import { NetImage } from '../common/NetImage';
 
 @Entry
 @Component
 struct Index {
-  @State currentIndex: number = 0;
-
-  build() {
-    Tabs({ barPosition: BarPosition.End }) {
-      // Tab 1: 首页
-      TabContent() {
-        HomeTab()
-      }.tabBar('首页')
-
-      // Tab 2: 版块
-      TabContent() {
-        ForumTab()
-      }.tabBar('版块')
-
-      // Tab 3: 我的
-      TabContent() {
-        ProfileTab()
-      }.tabBar('我的')
-    }
-    .onChange((index: number) => {
-      this.currentIndex = index;
-    })
-    .width('100%')
-    .height('100%')
-  }
-}
-
-// ==========================================
-// 首页组件 (热门)
-// ==========================================
-@Component
-struct HomeTab {
   @State threads: Array<Thread> = [];
-  @State isLoading: boolean = true;
+  @State isLoading: boolean = false;
   @State errorMsg: string = '';
 
   async aboutToAppear() {
-    let context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-    await cookieManager.init(context);
     await this.loadData();
   }
 
   async loadData() {
+    this.isLoading = true;
+    this.errorMsg = '';
     try {
-      this.isLoading = true;
       let res = await forumRepository.home();
-      
-      if (res && res.hotThreads) {
-        this.threads = res.hotThreads;
-      }
-      if (res && res.hotForums) {
-        this.forums = res.hotForums;
-      }
-    } catch (e) {
-      console.error('Load home error: ' + JSON.stringify(e));
-    } finally {
-      this.isLoading = false;
-    }
-
-    } catch (error) {
-      this.errorMsg = (error as Error).message || '加载失败';
+      this.threads = res.hotThreads;
+    } catch (e: Error) {
+      this.errorMsg = e.message;
     } finally {
       this.isLoading = false;
     }
@@ -78,282 +29,46 @@ struct HomeTab {
   build() {
     Column() {
       Row() {
-        Text('MT论坛').fontSize(20).fontWeight(FontWeight.Bold).fontColor('#333')
+        Text('首页').fontSize(20).fontWeight(FontWeight.Bold)
         Blank()
-        Text('搜索').fontSize(14).fontColor('#4D6BFE').margin({ right: 15 }).onClick(() => router.pushUrl({ url: 'pages/SearchPage' }))
-        Text('去登录').fontSize(14).fontColor('#4D6BFE').onClick(() => {
-          router.pushUrl({ url: 'pages/Login' });
+        Button('刷新').onClick(() => {
+          this.loadData();
         })
-      }.width('100%').height(50).padding({ left: 16, right: 16 }).backgroundColor('#FFFFFF')
-
-      if (this.isLoading && this.threads.length === 0) {
-        LoadingProgress().width(50).height(50).color('#4D6BFE').margin({ top: 100 })
-      } else if (this.errorMsg !== '') {
-        Text(this.errorMsg).fontSize(16).fontColor(Color.Red).margin({ top: 100 })
-      } else {
-        Refresh({ refreshing: $$this.isLoading }) {
-          List({ space: 10 }) {
-            ForEach(this.threads, (item: Thread) => {
-              ListItem() {
-                this.ThreadCard(item)
-              }
-              .onClick(() => {
-                router.pushUrl({ url: 'pages/ThreadDetail', params: { tid: item.tid } });
-              })
-            }, (item: Thread) => item.tid)
-          }.width('100%').layoutWeight(1).padding(10).backgroundColor('#F5F5F5')
-        }
-        .onRefreshing(() => { this.loadData(); })
-        .width('100%').layoutWeight(1)
-      }
-    }.width('100%').height('100%')
-  }
-
-  @Builder
-  ThreadCard(thread: Thread) {
-    Column({ space: 8 }) {
-      Row({ space: 8 }) {
-        Image(thread.avatarUrl ? thread.avatarUrl : $r('app.media.icon'))
-          .width(30).height(30).borderRadius(15).backgroundColor('#EEEEEE')
-        Column() {
-          Text(thread.authorName || '匿名用户').fontSize(14).fontWeight(FontWeight.Medium).fontColor('#333')
-          Text(thread.timeText || '刚刚').fontSize(11).fontColor('#999')
-        }.alignItems(HorizontalAlign.Start)
-      }.width('100%')
-
-      Text(thread.subject).fontSize(16).fontWeight(FontWeight.Bold).fontColor('#111').maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
-
-      if (thread.imageUrls && thread.imageUrls.length > 0) {
-        NetImage({ src: thread.imageUrls[0], imgWidth: '100%', imgHeight: 150, imgRadius: 6 })
-      }
-
-      Row({ space: 15 }) {
-        Text(`阅读 ${thread.viewCount || 0}`).fontSize(12).fontColor('#999')
-        Text(`回复 ${thread.replyCount || 0}`).fontSize(12).fontColor('#999')
-        Blank()
-      }.width('100%').margin({ top: 4 })
-    }
-    .width('100%').padding(12).backgroundColor('#FFFFFF').borderRadius(10)
-    .shadow({ radius: 4, color: '#0A000000', offsetX: 0, offsetY: 2 })
-  }
-}
-
-// ==========================================
-// 版块导航组件
-// ==========================================
-@Component
-struct ForumTab {
-  @State groups: Array<ForumGroup> = [];
-  @State isLoading: boolean = true;
-
-  async aboutToAppear() {
-    await this.loadData();
-  }
-
-  async loadData() {
-    try {
-      this.isLoading = true;
-      let res = await forumRepository.home();
-      
-      if (res && res.hotThreads) {
-        this.threads = res.hotThreads;
-      }
-      if (res && res.hotForums) {
-        this.forums = res.hotForums;
-      }
-    } catch (e) {
-      console.error('Load home error: ' + JSON.stringify(e));
-    } finally {
-      this.isLoading = false;
-    }
-
-    } catch (e) {
-      console.error('Load forums failed', e);
-    } finally {
-      this.isLoading = false;
-    }
-  }
-
-  build() {
-    Column() {
-      Row() {
-        Text('版块导航').fontSize(20).fontWeight(FontWeight.Bold).fontColor('#333')
-      }.width('100%').height(50).padding({ left: 16 }).backgroundColor('#FFFFFF')
+      }.width('100%').padding(10)
 
       if (this.isLoading) {
-        LoadingProgress().width(50).height(50).color('#4D6BFE').margin({ top: 100 })
+        LoadingProgress().width(50).height(50).margin({ top: 20 })
+      } else if (this.errorMsg) {
+        Text(this.errorMsg).fontColor(Color.Red).margin({ top: 20 })
       } else {
-        List({ space: 15 }) {
-          ForEach(this.groups, (group: ForumGroup) => {
+        List() {
+          ForEach(this.threads, (thread: Thread) => {
             ListItem() {
-              Column({ space: 10 }) {
-                Text(group.name).fontSize(16).fontWeight(FontWeight.Bold).fontColor('#4D6BFE').width('100%').margin({ bottom: 5 })
-                
-                ForEach(group.forums, (forum: Forum) => {
-                  Row({ space: 10 }) {
-                    if (forum.icon) {
-                      Image(forum.icon).width(36).height(36).borderRadius(6)
-                    } else {
-                      Image($r('app.media.icon')).width(36).height(36).borderRadius(6)
-                    }
-                    
-                    Column() {
-                      Text(forum.name).fontSize(15).fontColor('#333').fontWeight(FontWeight.Medium)
-                    }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-
-                    if (forum.todayPosts > 0) {
-                      Text(`今日: ${forum.todayPosts}`).fontSize(12).fontColor('#FF5722')
-                    }
-                  }
-                  .width('100%')
-                  .padding(10)
-                  .backgroundColor('#F9F9F9')
-                  .borderRadius(8)
-                  .onClick(() => {
-                    router.pushUrl({ url: 'pages/ForumPageList', params: { fid: forum.fid, name: forum.name } });
-                  })
-                }, (forum: Forum) => forum.fid)
-              }
-              .width('100%').padding(15).backgroundColor('#FFFFFF').borderRadius(12)
-            }
-          }, (group: ForumGroup) => group.name)
-        }
-        .width('100%').layoutWeight(1).padding(15).backgroundColor('#F5F5F5')
-      }
-    }.width('100%').height('100%')
-  }
-}
-
-// ==========================================
-// 个人中心组件
-// ==========================================
-@Component
-struct ProfileTab {
-  @State profile: UserProfile | null = null;
-  @State isLoading: boolean = true;
-  @State checkInStatus: CheckInStatus | null = null;
-  @State isCheckingIn: boolean = false;
-
-  async aboutToAppear() {
-    await this.loadData();
-  }
-
-  onPageShow() {
-    this.loadData();
-  }
-
-  async loadData() {
-    try {
-      this.isLoading = true;
-      let res = await forumRepository.home();
-      
-      if (res && res.hotThreads) {
-        this.threads = res.hotThreads;
-      }
-      if (res && res.hotForums) {
-        this.forums = res.hotForums;
-      }
-    } catch (e) {
-      console.error('Load home error: ' + JSON.stringify(e));
-    } finally {
-      this.isLoading = false;
-    }
-
-      }
-    } catch (e) {
-      console.error('Failed to load profile', e);
-    } finally {
-      this.isLoading = false;
-    }
-  }
-
-  async doLogout() {
-    await cookieManager.clear();
-    this.profile = null;
-    promptAction.showToast({ message: '已退出登录' });
-    this.loadData();
-  }
-
-  build() {
-    Column() {
-      Row() {
-        Text('个人中心').fontSize(20).fontWeight(FontWeight.Bold).fontColor('#333')
-      }.width('100%').height(50).padding({ left: 16 }).backgroundColor('#FFFFFF')
-
-      if (this.isLoading) {
-        LoadingProgress().width(50).height(50).color('#4D6BFE').margin({ top: 100 })
-      } else if (this.profile && this.profile.isLoggedIn) {
-        Scroll() {
-          Column({ space: 15 }) {
-            // 头部卡片
-            Row({ space: 15 }) {
-              Image(this.profile.avatarUrl ? this.profile.avatarUrl : $r('app.media.icon'))
-                .width(60).height(60).borderRadius(30).backgroundColor('#EEEEEE')
-              Column({ space: 5 }) {
-                Text(this.profile.name || '未知用户').fontSize(18).fontWeight(FontWeight.Bold)
-                Text(this.profile.groupName || '普通会员').fontSize(12).fontColor('#4D6BFE').backgroundColor('#E8F0FE').padding({ left: 6, right: 6, top: 2, bottom: 2 }).borderRadius(4)
-              }.alignItems(HorizontalAlign.Start)
-              Blank()
-            }.width('100%').padding(20).backgroundColor('#FFFFFF').borderRadius(12)
-
-            // 数据统计
-            Row() {
-              Column() { Text(`${this.profile.posts || 0}`).fontSize(16).fontWeight(FontWeight.Bold); Text('帖子').fontSize(12).fontColor('#999') }.layoutWeight(1)
-              Column() { Text(`${this.profile.credits || 0}`).fontSize(16).fontWeight(FontWeight.Bold); Text('积分').fontSize(12).fontColor('#999') }.layoutWeight(1)
-              Column() { Text(`${this.profile.gold || 0}`).fontSize(16).fontWeight(FontWeight.Bold); Text('金币').fontSize(12).fontColor('#999') }.layoutWeight(1)
-            }.width('100%').padding({ top: 15, bottom: 15 }).backgroundColor('#FFFFFF').borderRadius(12)
-
-            // 签到卡片
-            Row() {
               Column() {
-                Text('每日签到').fontSize(16).fontWeight(FontWeight.Bold).fontColor('#333')
-                Text(this.checkInStatus?.hasSigned ? '今日已签到' : '签到获取积分').fontSize(12).fontColor('#999').margin({ top: 4 })
-              }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-              
-              Button(this.checkInStatus?.hasSigned ? '已签到' : (this.isCheckingIn ? '签到中...' : '立即签到'))
-                .backgroundColor(this.checkInStatus?.hasSigned ? '#CCCCCC' : '#FF5722')
-                .fontColor('#FFFFFF')
-                .enabled(!this.checkInStatus?.hasSigned && !this.isCheckingIn)
-                .onClick(async () => {
-                  if (!this.checkInStatus?.formhash) return;
-                  this.isCheckingIn = true;
-                  try {
-                    const res = await forumRepository.submitCheckIn(this.checkInStatus.formhash);
-                    promptAction.showToast({ message: res.message });
-                    if (res.success) await this.loadData();
-                  } catch (e) {
-                    promptAction.showToast({ message: '签到失败' });
-                  } finally {
-                    this.isCheckingIn = false;
-                  }
-                })
-            }.width('100%').padding(20).backgroundColor('#FFFFFF').borderRadius(12)
-
-            // 菜单列表
-            Column() {
-              Row() { Text('消息通知').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' }).onClick(() => router.pushUrl({ url: 'pages/Notices' }))
-              Row() { Text('我的私信').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' }).onClick(() => router.pushUrl({ url: 'pages/PmList' }))
-              Row() { Text('我的帖子').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' }).onClick(() => router.pushUrl({ url: 'pages/MyPosts' }))
-              Row() { Text('我的收藏').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).border({ width: { bottom: 0.5 }, color: '#EEEEEE' }).onClick(() => router.pushUrl({ url: 'pages/MyFavorites' }))
-              Row() { Text('我的好友').fontSize(15); Blank(); Text('>').fontColor('#999') }.width('100%').padding(15).onClick(() => router.pushUrl({ url: 'pages/MyFriends' }))
-            }.width('100%').backgroundColor('#FFFFFF').borderRadius(12)
-
-            // 退出登录
-            Button('退出登录')
-              .width('100%').height(45).backgroundColor('#FF3B30').fontColor('#FFFFFF').margin({ top: 20, bottom: 40 })
-              .onClick(() => this.doLogout())
-          }
-          .width('90%').margin({ top: 15, bottom: 20 })
-        }.width('100%').layoutWeight(1).backgroundColor('#F5F5F5').align(Alignment.Top)
-      } else {
-        Column({ space: 20 }) {
-          Image($r('app.media.icon')).width(80).height(80).borderRadius(40).backgroundColor('#EEEEEE')
-          Text('您尚未登录').fontSize(16).fontColor('#666')
-          Button('立即登录')
-            .width('60%').height(45).backgroundColor('#4D6BFE').fontColor('#FFFFFF')
-            .onClick(() => router.pushUrl({ url: 'pages/Login' }))
-        }.width('100%').height('100%').justifyContent(FlexAlign.Center)
+                Text(thread.subject || '无标题')
+                  .fontSize(16)
+                  .fontWeight(FontWeight.Medium)
+                  .maxLines(2)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                Text(thread.authorName || '匿名')
+                  .fontSize(12)
+                  .fontColor(Color.Gray)
+              }
+              .alignItems(HorizontalAlign.Start)
+              .padding(10)
+            }
+            .onClick(() => {
+              if (thread.tid) {
+                router.pushUrl({ url: 'pages/ThreadDetail', params: { tid: thread.tid } });
+              }
+            })
+          }, (thread: Thread) => thread.tid)
+        }
+        .width('100%')
+        .layoutWeight(1)
       }
-    }.width('100%').height('100%').backgroundColor('#F5F5F5')
+    }
+    .width('100%')
+    .height('100%')
   }
 }
