@@ -8,20 +8,23 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '18'
+
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
+
       - name: Setup OpenHarmony SDK
         uses: ErBWs/setup-ohos@v2
 
-      # 清空签名配置，强制生成未签名包
+      # 清空本地签名配置，强制生成未签名包（签名由后续步骤完成）
       - name: Remove Signing Configs
         run: |
           python3 -c "
@@ -31,26 +34,118 @@ jobs:
           with open('build-profile.json5', 'w') as f: json.dump(data, f, indent=2)
           "
 
-      # 编译打包
+      # 从 Secrets 还原签名材料到临时目录
+      - name: Prepare signing materials
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          CERT_B64:     ${{ secrets.CERT_BASE64 }}
+          PROFILE_B64:  ${{ secrets.PROFILE_BASE64 }}
+        run: |
+          set -e
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$CERT_B64" ] || [ -z "$PROFILE_B64" ]; then
+            echo "❌ 缺少签名 Secrets（KEYSTORE_BASE64 / CERT_BASE64 / PROFILE_BASE64）"
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/signing.p12"
+          echo "$CERT_B64"     | base64 -d > "$RUNNER_TEMP/signing.cer"
+          echo "$PROFILE_B64"  | base64 -d > "$RUNNER_TEMP/signing.p7b"
+          chmod 600 "$RUNNER_TEMP/signing.p12"
+          echo "✅ 签名材料已就绪"
+          ls -lh "$RUNNER_TEMP"/signing.*
+
+      # 编译打包（生成未签名 HAP）
       - name: Build HAP
         run: |
           hvigorw clean --no-daemon
           hvigorw assembleHap --mode module -p product=default --no-parallel --no-daemon
 
-      # 自动发布未签名的包到 Releases
+      # 使用 hap-sign-tool.jar 对全部 unsigned.hap 签名
+      - name: Sign HAP
+        env:
+          KEY_ALIAS:         ${{ secrets.KEY_ALIAS }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -e
+          if [ -z "$KEY_ALIAS" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "❌ 缺少 KEY_ALIAS / KEYSTORE_PASSWORD"
+            exit 1
+          fi
+
+          # 找 hap-sign-tool.jar
+          SIGN_JAR=$(find "$HOS_SDK_HOME" -name "hap-sign-tool.jar" 2>/dev/null | head -1)
+          if [ -z "$SIGN_JAR" ]; then
+            SIGN_JAR=$(find / -name "hap-sign-tool.jar" 2>/dev/null | head -1)
+          fi
+          if [ -z "$SIGN_JAR" ]; then
+            echo "❌ 找不到 hap-sign-tool.jar"
+            exit 1
+          fi
+          echo "🔑 签名工具: $SIGN_JAR"
+
+          # 找所有 unsigned.hap
+          UNSIGNED_LIST=$(find entry/build -name "*-unsigned.hap" -type f)
+          if [ -z "$UNSIGNED_LIST" ]; then
+            echo "❌ 未找到 *-unsigned.hap"
+            echo "── 现有 hap 文件 ──"
+            find entry/build -name "*.hap" -type f
+            exit 1
+          fi
+
+          SIGNED_FILES=()
+          while IFS= read -r UNSIGNED; do
+            [ -z "$UNSIGNED" ] && continue
+            DIR=$(dirname "$UNSIGNED")
+            BASE=$(basename "$UNSIGNED" | sed 's/-unsigned\.hap$/.hap/')
+            SIGNED="$DIR/$BASE"
+            echo ""
+            echo "📦 签名: $UNSIGNED → $SIGNED"
+            java -jar "$SIGN_JAR" sign-app \
+              -keyAlias "$KEY_ALIAS" \
+              -signAlg "SHA256withECDSA" \
+              -mode "localSign" \
+              -appCertFile "$RUNNER_TEMP/signing.cer" \
+              -profileFile "$RUNNER_TEMP/signing.p7b" \
+              -inFile "$UNSIGNED" \
+              -keystoreFile "$RUNNER_TEMP/signing.p12" \
+              -outFile "$SIGNED" \
+              -keyPwd "$KEYSTORE_PASSWORD" \
+              -keystorePwd "$KEYSTORE_PASSWORD" \
+              -signCode "1"
+            SIGNED_FILES+=("$SIGNED")
+            ls -lh "$SIGNED"
+          done <<< "$UNSIGNED_LIST"
+
+          if [ "${#SIGNED_FILES[@]}" -eq 0 ]; then
+            echo "❌ 未生成任何签名包"
+            exit 1
+          fi
+
+          # 用第一条作为产物路径（一般只有 entry-default.hap）
+          echo "SIGNED_HAP=${SIGNED_FILES[0]}" >> "$GITHUB_ENV"
+          echo ""
+          echo "✅ 签名完成：${#SIGNED_FILES[@]} 个"
+          for f in "${SIGNED_FILES[@]}"; do echo "   $f"; done
+
+      # 清理临时签名材料（避免被 artifact 收集）
+      - name: Cleanup signing materials
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP"/signing.p12 "$RUNNER_TEMP"/signing.cer "$RUNNER_TEMP"/signing.p7b
+
+      # 发布签名后的 HAP 到 Releases
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}-unsigned
-          name: MTH Release v1.0.${{ github.run_number }} (Unsigned)
-          body: "Auto-built by GitHub Actions. (Unsigned HAP, cannot be installed on real devices directly)"
+          tag_name: v1.0.${{ github.run_number }}-signed
+          name: MTH Release v1.0.${{ github.run_number }} (Signed)
+          body: "Auto-built & signed by GitHub Actions. 可安装到真机。"
           files: entry/build/default/outputs/default/*.hap
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 保留 Actions 产物
-      - name: Upload HAP Artifact
+      # 上传签名 HAP 作为 Artifact
+      - name: Upload Signed HAP Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MTH-Unsigned-HAP
+          name: MTH-Signed-HAP
           path: entry/build/default/outputs/default/*.hap
