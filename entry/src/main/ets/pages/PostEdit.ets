@@ -20,6 +20,17 @@ struct PostEdit {
   @State isSubmitting: boolean = false;
   @State showSmiley: boolean = false;
 
+  onPageShow() {
+    const picked = AppStorage.Get<string>('pickedAtUser');
+    if (picked && picked.length > 0) {
+      this.content = this.content + ' @' + picked + ' ';
+      AppStorage.SetOrCreate('pickedAtUser', '');
+      if (this.fid) {
+        DraftStore.saveDraft(this.fid, this.title, this.content);
+      }
+    }
+  }
+
   async aboutToAppear() {
     let context = this.getUIContext().getHostContext() as common.UIAbilityContext;
     await DraftStore.init(context);
@@ -127,6 +138,15 @@ struct PostEdit {
             this.title = val;
             DraftStore.saveDraft(this.fid, this.title, this.content); // 实时保存草稿
           })
+
+        Row() {
+          Blank()
+          Text('@ 插入用户').fontSize(13).fontColor('#4D6BFE')
+            .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+            .borderRadius(12)
+            .backgroundColor('#E8EEFF')
+            .onClick(() => router.pushUrl({ url: 'pages/AtUserPicker' }))
+        }.width('100%').margin({ bottom: 4 })
 
         TextArea({ placeholder: '请输入正文内容...', text: this.content })
           .height(300).backgroundColor(MtfColors.bgLight).borderRadius(8)

@@ -18,6 +18,7 @@
     "pages/Downloads",
     "pages/Logs",
     "pages/LogDetail",
-    "pages/AtUserPicker"
+    "pages/AtUserPicker",
+    "pages/Settings"
   ]
 }
