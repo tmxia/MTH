@@ -13,6 +13,7 @@ export class Forum {
 }
 
 export class Thread {
+  imageUrls: Array<string> = [];
   tid: string = "";
   subject: string = "";
   authorName?: string | null = null;
