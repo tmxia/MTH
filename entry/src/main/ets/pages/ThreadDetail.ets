@@ -1,6 +1,7 @@
 import { forumRepository } from '../repo/ForumRepository';
 import { ThreadPage, Post, RichTextNode } from '../models/Models';
 import { ForumParser } from '../parser/ForumParser';
+import { RichTextView } from '../components/RichTextView';
 import { NetImage } from '../common/NetImage';
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
@@ -39,69 +40,7 @@ struct ThreadDetail {
 
       const newMap = new Map<string, Array<RichTextNode>>();
       for (const post of data.posts) {
-        newMap.set(post.pid, ForumParser.parseRichText(post.contentHtml));
-      }
-      this.parsedRichText = newMap;
-    } catch (e) {
-      this.errorMsg = (e as Error).message;
-    } finally {
-      this.isLoading = false;
-    }
-  }
-
-  async submitReply() {
-    if (!this.tp || !this.tp.formhash) return;
-    this.isSending = true;
-    try {
-      const res = await forumRepository.reply(this.tp.tid, this.tp.fid || '0', this.tp.formhash, this.replyText);
-      if (res.success) {
-        promptAction.showToast({ message: '回复成功' });
-        this.replyText = '';
-        await this.loadData(this.tp.tid, this.tp.page);
-      } else {
-        promptAction.showToast({ message: res.message || '回复失败' });
-      }
-    } catch (e) {
-      promptAction.showToast({ message: '网络异常' });
-    } finally {
-      this.isSending = false;
-    }
-  }
-
-  async doLike() {
-    if (!this.tp || !this.tp.formhash) return;
-    try {
-      const res = await forumRepository.likeThread(this.tp.tid, this.tp.formhash, !this.isLiked);
-      if (res.success) {
-        this.isLiked = !this.isLiked;
-        promptAction.showToast({ message: this.isLiked ? '点赞成功' : '已取消' });
-      } else {
-        promptAction.showToast({ message: res.message || '操作受限' });
-      }
-    } catch (e) {
-      promptAction.showToast({ message: '网络异常' });
-    }
-  }
-
-  async doFavorite() {
-    if (!this.tp || !this.tp.formhash) return;
-    try {
-      const res = await forumRepository.favoriteThread(this.tp.tid, this.tp.formhash);
-      if (res.success) {
-        this.isFavorited = !this.isFavorited;
-        promptAction.showToast({ message: '收藏成功' });
-      } else {
-        promptAction.showToast({ message: res.message || '收藏失败' });
-      }
-    } catch (e) {
-      promptAction.showToast({ message: '网络异常' });
-    }
-  }
-
-  build() {
-    Column() {
-      Row() {
-        Text('< 返回').fontSize(16).fontColor('#333').onClick(() => router.back())
+        newMap.set(post.pid, ForumParser.parseRichRichTextView({ nodes: this.parsedRichText.get(post.pid) || [] }).fontColor('#333').onClick(() => router.back())
         Text('帖子详情').fontSize(18).fontWeight(FontWeight.Bold).layoutWeight(1).textAlign(TextAlign.Center)
         Blank().width(40)
       }.width('100%').height(50).padding({ left: 16, right: 16 }).backgroundColor('#FFFFFF')

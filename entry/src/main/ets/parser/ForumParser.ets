@@ -36,10 +36,38 @@ export class ForumParser {
 
   // ------------------ 核心：解析帖子详情页 ------------------
 
-    static parseRichText(html: string): Array<RichTextNode> {
+      static parseRichText(html: string): Array<RichTextNode> {
     let nodes: Array<RichTextNode> = [];
     if (!html) return nodes;
 
+    // 简易正则匹配图片，将其余部分作为文本
+    let imgRegex = /<img[^>]*src=["']([^"']+)["'][^>]*>/gi;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = imgRegex.exec(html)) !== null) {
+      let textBefore = html.substring(lastIndex, match.index);
+      if (textBefore.trim()) {
+        nodes.push(this.createTextNode(textBefore));
+      }
+      
+      let imgNode = new RichTextNode();
+      imgNode.type = 'image';
+      imgNode.src = match[1];
+      nodes.push(imgNode);
+
+      lastIndex = imgRegex.lastIndex;
+    }
+
+    let textAfter = html.substring(lastIndex);
+    if (textAfter.trim()) {
+      nodes.push(this.createTextNode(textAfter));
+    }
+
+    return nodes;
+  }
+
+  static createTextNode(html: string): RichTextNode {
     // 轻量级降级：将 <br> 和块级标签替换为换行，然后剥离其他标签
     let text = html.replace(/<br\s*\/?>/gi, '\n')
                    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
@@ -48,14 +76,12 @@ export class ForumParser {
                    .replace(/&amp;/g, '&')
                    .replace(/&lt;/g, '<')
                    .replace(/&gt;/g, '>')
-                   .replace(/\n{3,}/g, '\n\n'); // 过滤多余换行
-
-    if (text.trim().length > 0) {
-      let node = new RichTextNode();
-      node.type = 'text';
-      node.content = text.trim();
-      nodes.push(node);
-    }
+                   .replace(/\n{3,}/g, '\n\n');
+    let node = new RichTextNode();
+    node.type = 'text';
+    node.content = text.trim();
+    return node;
+  }
     return nodes;
   }
 

@@ -371,7 +371,10 @@ export class ImageUpload {
 }
 
 export class RichTextNode {
+  type: string = "text";
   content: string = "";
+  src?: string;
+  href?: string;
 
   type: string = ""; // 'text' | 'image' | 'quote'
   text?: string;
