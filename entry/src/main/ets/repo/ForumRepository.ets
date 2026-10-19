@@ -36,7 +36,7 @@ export class ForumRepository {
   
   async threadPage(tid: string, page?: number): Promise<ThreadPage> { return new ThreadPage(); }
   async reply(tid: string, message: string, formhash?: string, captcha?: string): Promise<ReplyResult> { return new ReplyResult(); }
-  async likeThread(tid: string, formhash?: string, action?: string): Promise<LikeResult> { return new LikeResult(); }
+  async likeThread(tid: string, formhash?: string, action?: string | boolean): Promise<LikeResult> { return new LikeResult(); }
   async favoriteThread(tid: string, formhash?: string): Promise<ReplyResult> { return new ReplyResult(); }
   
   async forumPage(fid: string, page?: number, sort?: ForumSort | string): Promise<ForumPage> { return new ForumPage(); }

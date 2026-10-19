@@ -25,7 +25,7 @@ export class Thread {
   excerpt?: string | null = null;
   isAnnouncement: boolean = false;
   forumName?: string | null = null;
-  imageUrls: Array<string> = [];
+
   likeCount?: string | null = null;
   isSticky: boolean = false;
 }
@@ -64,6 +64,7 @@ export class ThreadPage {
 }
 
 export class Post {
+  imageUrls: Array<string> = [];
   pid: string = "";
   authorName: string = "";
   authorUid?: string | null = null;
@@ -369,8 +370,6 @@ export class ImageUpload {
 }
 
 export class RichTextNode {
-  content: string = "";
-
   content: string = "";
 
   type: string = ""; // 'text' | 'image' | 'quote'
