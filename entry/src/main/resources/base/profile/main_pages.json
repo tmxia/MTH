@@ -13,6 +13,7 @@
     "pages/PmList",
     "pages/Chat",
     "pages/UserProfilePage",
-    "pages/Drafts"
+    "pages/Drafts",
+    "pages/History"
   ]
 }
