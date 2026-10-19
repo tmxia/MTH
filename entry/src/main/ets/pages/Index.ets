@@ -40,6 +40,9 @@ struct Index {
         Text('下载').fontSize(14).fontColor('#4D6BFE')
           .padding({ left: 8, right: 8, top: 6, bottom: 6 })
           .onClick(() => router.pushUrl({ url: 'pages/Downloads' }))
+        Text('日志').fontSize(14).fontColor('#4D6BFE')
+          .padding({ left: 8, right: 8, top: 6, bottom: 6 })
+          .onClick(() => router.pushUrl({ url: 'pages/Logs' }))
         Button('刷新').onClick(() => {
           this.loadData();
         })

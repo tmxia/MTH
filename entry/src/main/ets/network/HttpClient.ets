@@ -2,6 +2,7 @@ import request from '@ohos.request';
 import http from '@ohos.net.http';
 import { cookieManager } from './CookieManager';
 import { WafSolver } from './WafSolver';
+import { LogStore, LogLevel } from '../common/LogStore';
 
 export class HttpClient {
   public static baseUrl: string = "https://bbs.binmt.cc/";
@@ -74,6 +75,7 @@ export class HttpClient {
       }
       let text = response.result as string;
       if (!_wafRetry && WafSolver.looksLikeChallenge(text)) {
+        LogStore.add(LogLevel.WARN, 'WAF', '检测到 WAF 挑战: ' + url);
         let wafVal = WafSolver.solve(text);
         if (wafVal) {
           let existingCookie = cookieManager.get();
@@ -97,11 +99,14 @@ export class HttpClient {
           return HttpClient.request(method, url, body, extraHeaders, true);
         }
       }
+      const code = response.responseCode;
+      LogStore.add(LogLevel.INFO, 'HTTP', (method === http.RequestMethod.POST ? 'POST ' : 'GET ') + url, 'status=' + code + ' len=' + text.length);
       return text;
     } catch (error) {
       // ArkTS 对 catch 变量极度严格，必须显式转换
       let err = error as Error;
       let errMsg: string = err.message ? err.message : 'Unknown Error';
+      LogStore.add(LogLevel.ERROR, 'HTTP', '请求失败: ' + url, errMsg);
       throw new Error('Http Request Failed: ' + errMsg);
     } finally {
       httpRequest.destroy();

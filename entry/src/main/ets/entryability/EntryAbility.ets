@@ -6,6 +6,7 @@ import { DraftStore } from '../common/DraftStore';
 import { historyStore } from '../common/HistoryStore';
 import { downloadStore } from '../common/DownloadStore';
 import { threadArchiveStore } from '../common/ThreadArchiveStore';
+import { LogStore } from '../common/LogStore';
 export default class EntryAbility extends UIAbility {
   onCreate(): void {
     this.initStores().catch((e: Error) => {
@@ -19,6 +20,7 @@ export default class EntryAbility extends UIAbility {
     try { await historyStore.init(this.context); } catch (e) {}
     try { await downloadStore.init(this.context); } catch (e) {}
     try { await threadArchiveStore.init(this.context); } catch (e) {}
+    try { await LogStore.init(this.context); } catch (e) {}
   }
 
   onWindowStageCreate(windowStage: window.WindowStage) {
