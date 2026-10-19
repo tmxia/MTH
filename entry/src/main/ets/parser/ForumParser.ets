@@ -1,4 +1,4 @@
-import { Thread, ThreadPage, Post, RichTextNode, ActionState, ForumGroup, ForumPage } from '../models/Models';
+import { Thread, ThreadPage, Post, RichTextNode, ActionState, ForumGroup, ForumPage , FollowUserItem, FollowUserPage} from '../models/Models';
 
 import { AtUser } from '../models/Models';
 export class ForumParser {
@@ -188,6 +188,61 @@ export class ForumParser {
       list.push(u);
     }
     return list;
+  }
+
+
+  // 解析 home.php?mod=follow&do=following|follower 页面
+  static parseFollowUsers(html: string, page: number, defaultIsFollowing: boolean): FollowUserPage {
+    const out = new FollowUserPage();
+    out.users = [];
+    out.page = page;
+    out.hasNext = false;
+    if (!html) return out;
+
+    // 每项块：含 uid 链接
+    const blockRe = /space(?:&amp;|&)uid=(\d+)[\s\S]{0,1200}?<\/(?:li|dl|div)>/g;
+    let m: RegExpExecArray | null = blockRe.exec(html);
+    while (m !== null) {
+      const block = m[0];
+      const uid = m[1];
+      const item = new FollowUserItem();
+      item.uid = uid;
+      item.isFollowing = defaultIsFollowing;
+
+      const nameRe = /<strong[^>]*>([^<]+)<\/strong>/;
+      const nm = nameRe.exec(block);
+      if (nm) item.username = nm[1].trim();
+
+      const avRe = /<img[^>]+src=["']([^"']+)["']/;
+      const av = avRe.exec(block);
+      if (av) {
+        let u = av[1];
+        if (u.indexOf('//') === 0) u = 'https:' + u;
+        item.avatarUrl = u;
+      }
+
+      // 粉丝/关注数（"xx 粉丝" / "xx 关注"）
+      const fansRe = /(\d+)\s*粉丝/;
+      const fm = fansRe.exec(block);
+      if (fm) item.fansCount = fm[1];
+      const folRe = /(\d+)\s*关注/;
+      const flm = folRe.exec(block);
+      if (flm) item.followCount = flm[1];
+
+      // 是否有"已关注"文字
+      if (block.indexOf('已关注') >= 0 || block.indexOf('取消关注') >= 0) {
+        item.isFollowing = true;
+      } else if (block.indexOf('关注') >= 0 && block.indexOf('关注 Ta') >= 0) {
+        item.isFollowing = false;
+      }
+
+      out.users.push(item);
+      m = blockRe.exec(html);
+    }
+
+    // 是否有下一页
+    out.hasNext = html.indexOf('下一页') >= 0 || html.indexOf('next') >= 0;
+    return out;
   }
 
 }

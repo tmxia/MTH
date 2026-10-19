@@ -20,6 +20,7 @@
     "pages/LogDetail",
     "pages/AtUserPicker",
     "pages/Settings",
-    "pages/WafVerification"
+    "pages/WafVerification",
+    "pages/Follow"
   ]
 }

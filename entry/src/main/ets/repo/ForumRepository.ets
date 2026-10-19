@@ -7,7 +7,7 @@ import {
   FavoritePage, FriendUserPage, MyThreadPage, NewThreadPageData, 
   NewThreadResult, EditPostPageData, EditPostResult, ImageUpload,
   ReplyResult, LikeResult
-, AtUser} from '../models/Models';
+, AtUser, FollowUserPage} from '../models/Models';
 import { BusinessError } from '@ohos.base';
 
 
@@ -322,6 +322,53 @@ export class ForumRepository {
       }
     }
     return all;
+  }
+
+
+  // ===== 关注 / 粉丝 =====
+
+  async followList(type: string, page: number = 1): Promise<FollowUserPage> {
+    const path = type === 'following'
+      ? 'home.php?mod=follow&do=following&page=' + page + '&mobile=2'
+      : 'home.php?mod=follow&do=follower&page=' + page + '&mobile=2';
+    try {
+      let html = await HttpClient.get('/' + path);
+      return ForumParser.parseFollowUsers(html, page, type === 'following');
+    } catch (e) {
+      const empty = new FollowUserPage();
+      empty.users = [];
+      empty.page = page;
+      empty.hasNext = false;
+      return empty;
+    }
+  }
+
+  async toggleFollowUser(uid: string, follow: boolean): Promise<boolean> {
+    try {
+      const formhash = await this.fetchFormhash();
+      if (!formhash) return false;
+      const op = follow ? 'add' : 'del';
+      const url = '/home.php?mod=spacecp&ac=follow&op=' + op + '&fuid=' + uid +
+        '&hash=' + formhash + '&handlekey=followmod&inajax=1&mobile=2';
+      let res = await HttpClient.get(url);
+      return res.indexOf('succeedhandle') >= 0 ||
+             res.indexOf('关注成功') >= 0 ||
+             res.indexOf('已关注') >= 0 ||
+             res.indexOf('取消关注') >= 0 ||
+             res.indexOf('操作成功') >= 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async fetchFormhash(): Promise<string> {
+    try {
+      let html = await HttpClient.get('/home.php?mod=spacecp&mobile=2');
+      const m = /formhash=([a-zA-Z0-9]+)/.exec(html);
+      return m ? m[1] : '';
+    } catch (e) {
+      return '';
+    }
   }
 
 }
