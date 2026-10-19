@@ -361,3 +361,16 @@ export class HistoryItem {
   viewedAt: number = 0;
   type: string = "thread";
 }
+
+export class ImageUpload {
+  aid: string = "";
+  url: string = "";
+  fileName: string = "";
+}
+
+export class RichTextNode {
+  type: string = ""; // 'text' | 'image' | 'quote'
+  text?: string;
+  url?: string;
+  children?: Array<RichTextNode>;
+}

@@ -57,3 +57,5 @@ export class ForumRepository {
     return new CheckInResult();
   }
 }
+
+export const forumRepository = ForumRepository.getInstance();
