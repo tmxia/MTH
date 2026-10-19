@@ -42,7 +42,7 @@ struct ThreadDetail {
         newMap.set(post.pid, ForumParser.parseRichText(post.contentHtml));
       }
       this.parsedRichText = newMap;
-    } catch (e: Error) {
+    } catch (e) {
       this.errorMsg = (e as Error).message;
     } finally {
       this.isLoading = false;
@@ -61,7 +61,7 @@ struct ThreadDetail {
       } else {
         promptAction.showToast({ message: res.message || '回复失败' });
       }
-    } catch (e: Error) {
+    } catch (e) {
       promptAction.showToast({ message: '网络异常' });
     } finally {
       this.isSending = false;
@@ -78,7 +78,7 @@ struct ThreadDetail {
       } else {
         promptAction.showToast({ message: res.message || '操作受限' });
       }
-    } catch (e: Error) {
+    } catch (e) {
       promptAction.showToast({ message: '网络异常' });
     }
   }
@@ -93,7 +93,7 @@ struct ThreadDetail {
       } else {
         promptAction.showToast({ message: res.message || '收藏失败' });
       }
-    } catch (e: Error) {
+    } catch (e) {
       promptAction.showToast({ message: '网络异常' });
     }
   }

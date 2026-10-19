@@ -32,7 +32,7 @@ export class ForumRepository {
       let res = await HttpClient.get('/');
       // TODO: 调用 ForumParser 解析 HTML
       return new HomeData();
-    } catch (e: Error) {
+    } catch (e) {
       console.error('home error', e);
       return new HomeData();
     }
@@ -42,7 +42,7 @@ export class ForumRepository {
     try {
       let res = await HttpClient.get('/forum.php?gid=1');
       return []; // TODO: 解析板块
-    } catch (e: Error) {
+    } catch (e) {
       return [];
     }
   }
@@ -51,7 +51,7 @@ export class ForumRepository {
     try {
       let res = await HttpClient.get(`/thread-${tid}-${page}-1.html`);
       return new ThreadPage(); // TODO: 解析详情
-    } catch (e: Error) {
+    } catch (e) {
       return new ThreadPage();
     }
   }
@@ -75,7 +75,7 @@ export class ForumRepository {
         return { success: true, message: '登录成功' } as LoginResult;
       }
       return { success: false, message: '账号或密码错误' } as LoginResult;
-    } catch (e: Error) {
+    } catch (e) {
       return { success: false, message: '网络错误' } as LoginResult;
     }
   }
@@ -86,7 +86,7 @@ export class ForumRepository {
       let hasSigned = res.includes('已签到') || res.includes('今日已签');
       let formhash = this.extractFormhash(res);
       return { hasSigned, formhash } as CheckInStatus;
-    } catch (e: Error) {
+    } catch (e) {
       return { hasSigned: false } as CheckInStatus;
     }
   }
@@ -98,7 +98,7 @@ export class ForumRepository {
         return { success: true, message: '签到成功' } as CheckInResult;
       }
       return { success: false, message: '签到失败' } as CheckInResult;
-    } catch (e: Error) {
+    } catch (e) {
       return { success: false, message: '网络错误' } as CheckInResult;
     }
   }
