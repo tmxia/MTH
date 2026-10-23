@@ -223,6 +223,24 @@ struct ThreadDetail {
     }
     const res = await forumRepository.addUserBlacklist(name, '');
     promptAction.showToast({ message: res || '操作完成' });
+
+    // 核心修复：拉黑成功后立即在本地过滤掉该作者的帖子，避免闪烁等待
+    if (this.tp && this.tp.posts) {
+      const originalCount = this.tp.posts.length;
+      const filtered = this.tp.posts.filter((p: Post) => p.authorName !== name);
+      
+      if (filtered.length !== originalCount) {
+        this.tp.posts = filtered;
+        
+        // 重新构建富文本 Map，确保 UI 响应刷新
+        const newMap = new Map<string, Array<RichTextNode>>();
+        for (let i = 0; i < filtered.length; i++) {
+          const p = filtered[i];
+          newMap.set(p.pid, ForumParser.parseRichText(p.contentHtml));
+        }
+        this.parsedRichText = newMap;
+      }
+    }
   }
 
   async loadData(tid: string, page: number) {
