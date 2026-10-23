@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "noResolve": true,
+    "allowJs": true,
+    "noImplicitAny": false
+  },
+  "include": ["arkts-globals.d.ts", "check_tmp/**/*.ts"]
+}

@@ -102,6 +102,7 @@ jobs:
               
             SIGNED_FILES+=("$SIGNED")
             ls -lh "$SIGNED"
+          cp "$SIGNED" "$DIR/MTH-release.hap"
           done <<< "$UNSIGNED_LIST"
 
           echo "SIGNED_HAP=${SIGNED_FILES[0]}" >> "$GITHUB_ENV"
@@ -144,10 +145,12 @@ jobs:
             -keystorePwd "$DEBUG_KEYSTORE_PWD" \
             -signCode "1"
           ls -lh "$SIGNED"
+          cp "$SIGNED" "$DIR/MTH-debug.hap"
 
       - name: Cleanup
         if: always()
-        run: rm -f "$RUNNER_TEMP"/signing.p12 "$RUNNER_TEMP"/signing.cer "$RUNNER_TEMP"/signing.p7b "$RUNNER_TEMP"/debug.p12 "$RUNNER_TEMP"/debug.cer "$RUNNER_TEMP"/debug.p7b
+        run: rm -f "$RUNNER_TEMP"/signing.p12 "$RUNNER_TEMP"/signing.cer "$RUNNER_TEMP"/signing.p7b
+          rm -f entry/build/default/outputs/default/*-unsigned.hap "$RUNNER_TEMP"/debug.p12 "$RUNNER_TEMP"/debug.cer "$RUNNER_TEMP"/debug.p7b
 
       - name: Read app version
         id: appver
@@ -160,8 +163,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.appver.outputs.version }}-signed
-          name: Release v${{ steps.appver.outputs.version }}
-          files: entry/build/default/outputs/default/*.hap
+          name: v${{ steps.appver.outputs.version }}
+          files: entry/build/default/outputs/default/MTH-*.hap
           allowUpdates: true
           overwrite_files: true
         env:
@@ -171,4 +174,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MTH-Signed-HAP
-          path: entry/build/default/outputs/default/*.hap
+          path: entry/build/default/outputs/default/MTH-*.hap
